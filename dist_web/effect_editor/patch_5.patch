@@ -1,0 +1,12 @@
+--- a/js/retrofx.js
++++ b/js/retrofx.js
+@@ -1174,6 +1174,9 @@
+         c.on('path:created', (e) => {
+             if (window.maskDrawState?.active && window.maskDrawState.tool === 'brush') {
+                 e.path.__isTempMask = true;
++                // 그린 형태의 내부를 채우도록 설정
++                e.path.set({ fill: 'rgba(233, 30, 99, 0.5)' });
++                window.canvas.requestRenderAll();
+             }
+         });
+     } else {

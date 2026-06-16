@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Canvas Video Editor</title>
+    <link rel="stylesheet" href="./css/style.css?v=20260604-transport-2-1">
+</head>
+<body>
+    <div class="app-container">
+        <header class="toolbar">
+            <select id="resolution">
+              <option value="1920x1080">1920x1080(16:9)</option>
+              <option value="1080x1920">1080x1920(9:16)</option>
+              <option value="2750x1536">2750x1536(16:9)</option>
+              <option value="1536x2750">1536x2750(9:16)</option>
+              <option value="3000x3000">3000x3000(1:1)</option>
+              <option value="3840x2160">3840x2160 (4K)</option>
+              <option value="2160x3840">2160x3840 (4K)</option>
+              <option value="7680x4320">7680x4320 (8K)</option>
+              <option value="4320x7680">4320x7680 (8K)</option>
+            </select>
+            
+            <select id="img-load-option" style="margin-bottom: 5px; width: 100%;">
+                <option value="fit">불러오기: 화면에 맞추기 (권장)</option>
+                <option value="original">불러오기: 원본 크기 (100%)</option>
+                <option value="" disabled>──────────────</option>
+                <option value="fill">현재객체: 비율무시 100% 채우기</option>
+                <option value="width">현재객체: 가로 기준 맞추기</option>
+                <option value="height">현재객체: 세로 기준 맞추기</option>
+            </select>
+            <label id="img-scale-wrap" style="font-size:11px;display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+                크기
+                <input type="range" id="img-scale-slider" min="10" max="300" value="100" style="flex:1;">
+                <span id="img-scale-value" style="min-width:38px;text-align:right;">100%</span>
+            </label>
+            <input type="file" id="img-loader" accept="image/*,video/*" style="display:none">
+            <button onclick="document.getElementById('img-loader').click()">이미지/비디오 불러오기</button>
+            
+            <button type="button" id="add-subtitle-btn" title="캔버스 중앙에 자막 추가">자막</button>
+			<button id="draw-mode-btn" style="background:#9c27b0;">✏️ 마우스로 선 긋기</button>
+			<button id="toggle-path-btn" style="background:#009688;">👁️ 가이드선 숨기기</button>
+            <button id="delete-btn" style="background:#ff9800;">선택 삭제</button>
+			<button id="reset-obj-btn" style="background:#607d8b;">효과 초기화</button>
+			<button id="alpha-edit-toggle-btn" type="button" style="background:#0369a1;margin-top:5px;">🧽 투명 영역 편집</button>
+			<button id="img-crop-btn" type="button" style="background:#e65100;margin-top:5px;">✂️ 이미지 크롭</button>
+			<div style="display:flex;gap:4px;align-items:center;margin-top:5px;">
+				<select id="img-upscale-select" style="flex:1;padding:8px;font-size:12px;">
+					<option value="canvas">캔버스 해상도에 맞춤</option>
+					<option value="1.5">업스케일 150%</option>
+					<option value="2" selected>업스케일 200%</option>
+					<option value="3">업스케일 300%</option>
+					<option value="4">업스케일 400%</option>					
+				</select>
+				<button id="img-upscale-btn" type="button" style="flex:1;background:#6a1b9a;white-space:nowrap;">⬆ 적용</button>
+			</div>
+			
+			<div style="display: flex; gap: 5px;">
+				<button id="bring-front-btn" style="background:#9c27b0; flex:1;">위로</button>
+				<button id="send-back-btn" style="background:#7b1fa2; flex:1;">아래로</button>
+			</div>
+			
+			<div class="bg-color-block">
+				<div class="bg-color-row">
+					<label class="bg-color-label" for="bg-color-open-btn">배경:</label>
+					<button type="button" id="bg-color-open-btn" class="bg-color-swatch-btn" title="색상 선택" aria-expanded="false" aria-controls="bg-color-popover"></button>
+					<button type="button" id="bg-transparent-btn" class="bg-transparent-btn">투명</button>
+				</div>
+				<div id="bg-color-popover" class="bg-color-popover" hidden>
+					<div id="bg-sv-plane" class="bg-sv-plane" title="채도·명도 선택">
+						<div id="bg-sv-cursor" class="bg-sv-cursor"></div>
+					</div>
+					<input type="range" id="bg-hue-slider" class="bg-hue-slider" min="0" max="360" value="0" step="1" title="색상(Hue)">
+					<span id="bg-color-hex" class="bg-color-hex">#FFFFFF</span>
+				</div>
+			</div>
+            
+            <div class="record-control-row">
+                <button type="button" id="record-toggle-btn" class="record-icon-btn" title="녹화 시작">⏺</button>
+                <button type="button" id="record-stop-btn" class="record-icon-btn record-stop-btn" title="녹화 저장" hidden>⏹</button>
+                <div class="record-status-wrap">
+                    <span id="record-time" class="record-time">00:00.0</span>
+                    <span id="record-status" class="record-status">대기</span>
+                </div>
+            </div>
+
+            <div id="left-menu-container" class="left-menu-standalone">
+                <button type="button" id="save-png-btn" style="width:100%;padding:10px;margin-top:8px;background:#00bcd4;color:#fff;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">💾 PNG 저장</button>
+                <button type="button" id="save-jpg-btn" style="width:100%;padding:10px;margin-top:8px;background:#2196f3;color:#fff;font-weight:bold;border:none;border-radius:4px;cursor:pointer;">💾 JPG 저장</button>
+            </div>
+			
+        </header>
+
+        <div class="center-wrapper">
+            <main class="canvas-area" id="canvas-wrapper">
+                <canvas id="main-canvas"></canvas>
+            </main>
+
+            <footer class="timeline">
+                <button type="button" class="time-btn" data-time="1">1초</button>
+                <button type="button" class="time-btn" data-time="2">2초</button>
+                <button type="button" class="time-btn" data-time="3">3초</button>
+                
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="font-size: 12px; color: #aaa;">시간:</span>
+                    <input type="number" id="effect-duration" value="2" min="0.1" max="100" step="0.5" style="width: 60px; padding: 5px;">
+                </div>
+                
+                <button type="button" class="time-btn" data-time="6">6초</button>
+                <button type="button" class="time-btn" data-time="10">10초</button>
+                <button type="button" class="time-btn" data-time="15">15초</button>
+                
+                <div style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+                    <span style="font-size: 12px; color: #aaa;">반복:</span>
+                    <input type="number" id="effect-repeat" value="1" min="1" max="100" style="width: 60px; padding: 5px;">
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+                    <input type="checkbox" id="repeat-infinite" checked>
+                    <label for="repeat-infinite" style="cursor: pointer; color:#ff9800; font-weight: bold; font-size: 13px;">무한반복</label>
+                </div>
+
+                <div class="effect-transport-footer" style="display:flex;align-items:center;gap:6px;margin-left:10px;">
+                    <button type="button" id="effect-transport-play-btn" class="effect-transport-btn" disabled title="재생/일시정지">▶</button>
+                    <button type="button" id="effect-transport-end-btn" class="effect-transport-btn" disabled title="효과 종료 (설정 유지)">⏹</button>
+                </div>
+            </footer>
+            
+            <div id="video-timeline-container" style="display:none; width: 100%; padding: 10px; background: #1e1e1e; border-top: 1px solid #333; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; flex-wrap: nowrap;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                        <button type="button" id="video-play-pause-btn" style="background: none; border: none; color: #fff; cursor: pointer; font-size: 20px; padding: 0 4px;" title="일시정지">⏸</button>
+                        <div style="display: flex; align-items: center; gap: 4px; margin-left: 5px;">
+                            <span id="video-vol-icon" style="color: #fff; font-size: 16px;">🔇</span>
+                            <input type="range" id="video-volume-slider" min="0" max="1" step="0.05" value="0" style="width: 50px;">
+                        </div>
+                        <span id="video-time-display" style="color: #fff; font-size: 13px; font-family: monospace; white-space: nowrap; margin-left: 5px;">00:00 / 00:00</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+                        <label style="color:#aaa; font-size:12px; cursor:pointer; white-space: nowrap;">
+                            <input type="radio" name="video_sel_mode" value="all" checked> 전체선택
+                        </label>
+                        <label style="color:#aaa; font-size:12px; cursor:pointer;">
+                            <input type="radio" name="video_sel_mode" value="part"> 부분선택
+                        </label>
+                    </div>
+                </div>
+                <div id="video-track-wrapper" style="position: relative; width: 100%; height: 24px; background: #222; border-radius: 6px; overflow: visible; cursor: pointer; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
+                    <div id="video-track-progress" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #1976d2, #42a5f5); border-radius: 6px; pointer-events: none;"></div>
+                    <div id="video-track-selection" style="position: absolute; top: 0; left: 0; height: 100%; width: 100%; background: rgba(255, 152, 0, 0.25); border: 2px solid #ff9800; box-sizing: border-box; display: none;">
+                        <div id="video-handle-start" style="position: absolute; left: -6px; top: -3px; bottom: -3px; width: 12px; background: #fff; border-radius: 3px; cursor: ew-resize; border: 2px solid #ff9800; z-index: 10;"></div>
+                        <div id="video-handle-end" style="position: absolute; right: -6px; top: -3px; bottom: -3px; width: 12px; background: #fff; border-radius: 3px; cursor: ew-resize; border: 2px solid #ff9800; z-index: 10;"></div>
+                    </div>
+                    <div id="video-playhead" style="position: absolute; top: -5px; bottom: -5px; left: 0%; width: 2px; background: #ff5252; pointer-events: none; z-index: 15;">
+                        <div style="position: absolute; top: -8px; left: -6px; width: 14px; height: 14px; background: #ff5252; border-radius: 50%; box-shadow: 0 0 4px rgba(0,0,0,0.5); border: 2px solid #fff;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <aside class="filter-panel">
+            <div id="subtitle-preset-panel" style="display: none;">
+                <h4 class="filter-panel-title">📝 자막 프리셋</h4>
+                <p class="filter-panel-hint">메인 편집기에서 저장한 프리셋을 불러옵니다.</p>
+                <select id="effect-preset-select" title="자막 프리셋">
+                    <option value="">프리셋 선택…</option>
+                </select>
+                <button type="button" id="effect-load-preset-btn" style="margin-top:8px;background:#2563eb;">프리셋 적용</button>
+            </div>
+            <div id="filter-settings-panel" style="display: none;">
+                <h4 id="filter-title" style="margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 14px; color: #00bcd4;">
+                    ⚙️ 세부 옵션 조절
+                </h4>
+                <div id="filter-sliders"></div>
+                <div id="retro-effect-controls"></div>
+                <button type="button" id="effect-state-bake-btn" style="display:none;width:100%;padding:10px;margin-top:12px;background:#8b5cf6;color:#fff;font-weight:bold;border:none;border-radius:4px;cursor:pointer;" title="현재 효과 화면을 이미지로 고정 (다른 효과 적용 가능)">현재상태 적용</button>
+            </div>
+            <div id="filter-empty-msg" style="color: #666; font-size: 13px; text-align: center; margin-top: 50px;">
+                효과나 필터를 선택하면<br>여기에 세부 옵션이 표시됩니다.
+            </div>
+        </aside>
+
+        <section class="effects-list">
+            <h3>동적 효과 (1~100)</h3>
+            <div id="buttons-container" style="max-height: 270px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+            
+            <h3 style="margin-top: 20px; color:#00bcd4; border-bottom: 1px solid #00bcd4; padding-bottom: 5px;">🎨 정적 필터 (1~100)</h3>
+            <div id="static-filters-container" style="max-height: 270px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+
+            <h3 style="margin-top: 20px; color:#ff9800; border-bottom: 1px solid #ff9800; padding-bottom: 5px;">🌊 레트로 특수 효과 (1~21)</h3>
+            <div id="retro-fx-container" style="max-height: 270px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+        </section>
+    </div>
+
+    <div id="effectAlphaModal" class="modal-overlay image-alpha-modal-overlay" style="display:none;" aria-modal="true" role="dialog">
+        <div class="image-alpha-modal-content">
+            <div class="image-alpha-header">
+                <div class="modal-title">이미지 투명 영역 편집</div>
+                <button type="button" id="effectAlphaCloseBtn" class="image-alpha-close-btn" title="닫기">✕</button>
+            </div>
+            <div class="image-alpha-toolbar">
+                <button type="button" class="image-alpha-tool active" data-tool="brush">붓</button>
+                <button type="button" class="image-alpha-tool" data-tool="rect">사각형</button>
+                <button type="button" class="image-alpha-tool" data-tool="circle">원</button>
+                <button type="button" class="image-alpha-tool" data-tool="ellipse">타원</button>
+                <button type="button" class="image-alpha-tool" data-tool="heart">하트</button>
+                <button type="button" class="image-alpha-tool" data-tool="star">별</button>
+                <button type="button" class="image-alpha-tool" data-tool="flower">꽃</button>
+                <button type="button" class="image-alpha-tool" data-tool="gear">톱니</button>
+                <button type="button" class="image-alpha-tool" data-tool="drop">방울</button>
+                <button type="button" class="image-alpha-tool" data-tool="ribbon">리본</button>
+                <button type="button" class="image-alpha-tool" data-tool="free">올가미</button>
+                <label class="image-alpha-brush-label">붓 크기
+                    <input type="range" id="effectAlphaBrushSize" min="4" max="120" value="28">
+                </label>
+                <button type="button" id="effectAlphaUndoBtn">되돌리기</button>
+                <button type="button" id="effectAlphaResetBtn">원본 복원</button>
+                <span id="effectAlphaStatus" class="image-alpha-status">이미지를 선택하세요</span>
+            </div>
+            <div class="image-alpha-stage">
+                <div class="image-alpha-canvas-wrap">
+                    <canvas id="effectAlphaCanvas"></canvas>
+                    <canvas id="effectAlphaPreviewCanvas"></canvas>
+                </div>
+            </div>
+            <div class="image-alpha-actions">
+                <button type="button" id="effectAlphaApplyBtn">캔버스에 적용</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="effectCropModal" class="modal-overlay image-alpha-modal-overlay" style="display:none;" aria-modal="true" role="dialog">
+        <div class="image-alpha-modal-content">
+            <div class="image-alpha-header">
+                <div class="modal-title">이미지 크롭</div>
+                <button type="button" id="effectCropCloseBtn" class="image-alpha-close-btn" title="닫기">✕</button>
+            </div>
+            <div class="image-alpha-toolbar">
+                <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px;">
+                    비율
+                    <select id="crop-aspect-select" style="width:auto;flex:1;padding:6px;font-size:12px;">
+                        <option value="free">자유</option>
+                        <option value="16:9">16:9</option>
+                        <option value="9:16">9:16</option>
+                        <option value="1:1">1:1</option>
+						<option value="1:1">3:2</option>
+						<option value="1:1">2:3</option>
+						<option value="1:1">4:3</option>
+						<option value="1:1">3:4</option>
+                        <option value="canvas">캔버스 비율</option>
+                    </select>
+                </label>
+                <button type="button" id="effectCropResetBtn">전체 선택</button>
+                <span id="effectCropStatus" class="image-alpha-status">드래그로 크롭 영역을 지정하세요</span>
+            </div>
+            <div class="image-alpha-stage">
+                <div class="image-alpha-canvas-wrap">
+                    <canvas id="effectCropCanvas"></canvas>
+                </div>
+            </div>
+            <div class="image-alpha-actions">
+                <button type="button" id="effectCropApplyBtn">캔버스에 적용</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/MotionPathPlugin.min.js"></script>
+    
+    <script src="./js/video-timeline.js?v=20260617-17"></script>
+    <script src="./js/core.js?v=20260617-17"></script>
+    <script src="./js/motion.js?v=20260617-17"></script>
+    <script src="./js/filter.js?v=20260617-17"></script>
+    <script src="./js/retrofx.js?v=20260617-17"></script>
+    <script src="./js/retrofx-registry.js?v=20260617-17"></script>
+    <script src="./js/image-alpha-editor.js?v=20260617-17"></script>
+    <script src="./js/image-crop-upscale.js?v=20260617-17"></script>
+    <script src="./js/embed-bridge.js?v=20260617-17"></script>
+</body>
+</html>

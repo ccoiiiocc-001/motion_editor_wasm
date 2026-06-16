@@ -1,0 +1,56 @@
+{
+  "name": "motion-editor",
+  "version": "1.0.0",
+  "description": "Motion Editor — short-form video editor",
+  "main": "electron/main.js",
+  "scripts": {
+    "postinstall": "node scripts/copy-vendor.js",
+    "vendor": "node scripts/copy-vendor.js",
+    "start": "electron .",
+    "dist": "electron-builder --win",
+    "dist:dir": "electron-builder --win --dir",
+    "asbuild:debug": "asc assembly/index.ts --target debug",
+    "asbuild:release": "asc assembly/index.ts --target release",
+    "build:wasm": "npm run asbuild:release"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@xenova/transformers": "^2.17.2",
+    "fabric": "^5.3.0"
+  },
+  "devDependencies": {
+    "assemblyscript": "^0.27.29",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "javascript-obfuscator": "^5.4.3"
+  },
+  "build": {
+    "appId": "com.motioneditor.app",
+    "productName": "Motion Editor",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "index.html",
+      "css/**",
+      "js/**",
+      "vendor/**",
+      "electron/**",
+      "effect_editor/**",
+      "build/**",
+      "!node_modules/**",
+      "!release/**"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

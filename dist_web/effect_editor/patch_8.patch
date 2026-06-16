@@ -1,0 +1,35 @@
+--- a/js/retrofx.js
++++ b/js/retrofx.js
+@@ -1102,8 +1102,30 @@
+         c.on('path:created', (e) => {
+             if (window.maskDrawState?.active && window.maskDrawState.tool === 'brush') {
+                 e.path.__isTempMask = true;
+-                // 그린 형태의 내부를 채우도록 설정
+-                e.path.set({ fill: 'rgba(233, 30, 99, 0.5)' });
++                
++                let isClosed = false;
++                const p = e.path.path;
++                if (p && p.length > 1) {
++                    const startCmd = p[0];
++                    const endCmd = p[p.length - 1];
++                    if (startCmd.length >= 3 && endCmd.length >= 3) {
++                        const startX = startCmd[startCmd.length - 2];
++                        const startY = startCmd[startCmd.length - 1];
++                        const endX = endCmd[endCmd.length - 2];
++                        const endY = endCmd[endCmd.length - 1];
++                        const dist = Math.hypot(startX - endX, startY - endY);
++                        const threshold = Math.max(50, (e.path.strokeWidth || 40) * 2);
++                        if (dist < threshold) {
++                            isClosed = true;
++                        }
++                    }
++                }
++                
++                if (isClosed) {
++                    e.path.set({ fill: 'rgba(233, 30, 99, 0.5)' });
++                } else {
++                    e.path.set({ fill: '' });
++                }
+                 window.canvas.requestRenderAll();
+             }
+         });

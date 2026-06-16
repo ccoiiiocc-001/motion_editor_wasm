@@ -1,0 +1,52 @@
+[
+  {
+    "time": "2026-06-03 15:29:29",
+    "content": "<USER_REQUEST>\n효과창 레트로효과 7번에서 상단선 부분이 최소 20px 튀어나와서 물감이 흘러내리게 하고, 흘러내리는 물감의 입체감을 높여줘 \n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T15:29:29+09:00.\n</ADDITIONAL_METADATA>\n<USER_SETTINGS_CHANGE>\nThe user changed setting `Model Selection` from None to Gemini 3.1 Pro (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.\n</USER_SETTINGS_CHANGE>",
+    "timestamp": 1780468169.0
+  },
+  {
+    "time": "2026-06-03 15:48:03",
+    "content": "<USER_REQUEST>\n돌출 부위를 40px로 바꿔줘, 돌출 부위는 원형으로 튀어나온 듯이 표현해줘\n명암, 입체감 슬라이드를 조절해도 변화가 안느껴져, \n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T15:48:03+09:00.\n</ADDITIONAL_METADATA>",
+    "timestamp": 1780469283.0
+  },
+  {
+    "time": "2026-06-03 17:57:08",
+    "content": "<USER_REQUEST>\n레트로 효과 8번 벽 구멍 투시는 이미지에 지정한 모양으로 구멍을 뚫는 거야\n구멍이 있는 부분은 투명 영역이 돼\n\n다만 이미지를 벽이라고 생각하면 벽에 구멍을 뚫으면 벽의 두께도 같이 보이잖아 \n벽에 창문이 있다면 창틀이 있는 것 처럼 구멍을 뚫은 부분에 두께(창틀 처럼)를 표현하는 거야\n    \n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T17:57:08+09:00.\n</ADDITIONAL_METADATA>",
+    "timestamp": 1780477028.0
+  },
+  {
+    "time": "2026-06-03 18:26:28",
+    "content": "<USER_REQUEST>\n1. 처음에 원형 구멍이 적용되어 있는 데 사용자가 모양을 지정하기 전까지 효과를 적용하지마\n2. 이번 효과에는 에니메이션 효과는 적용하지 마\n3, 사용자가 구멍 모양(영역)을 결정하면 이미지에 입체 구멍을 뚫으면 돼\n4. 벽의 두께를 표시할 방향을 결정하기 위한 슬라이드를 만들어줘\n슬라이드는 왼쪽에서 보이는 구멍을 0(=오른 쪽에 창틀 표시), 왼쪽 위 45(오른 쪽 아래에 창틀 표시), 위에서 아래로 보기 90, 오른쪽 위 135, 오른쪽에서 보기 180, 오른 쪽 아래 225, 밑에서 위로 270, 왼쪽 밑에서보기 315 이렇게  8가지 방향을 선택할 수 있게 해, 슬라이드에 8개의 선택점만 표시하면 돼\n5. 벽의 두께 즉 창틀은 회색벽돌 무늬로 표시해줘, \n6. 벽의 두께를 결정할 슬라이드를 만들어 줘\n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T18:26:28+09:00.\n</ADDITIONAL_METADATA>",
+    "timestamp": 1780478788.0
+  },
+  {
+    "time": "2026-06-03 18:35:20",
+    "content": "<USER_REQUEST>\n벽돌 무늬가 안쪽에서 바깥(구멍)을 향했으면 좋겠고, 벽돌은 벽 두께에 따라 1장에서 2장 겹침으로 표시해줘  \n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T18:35:20+09:00.\n</ADDITIONAL_METADATA>",
+    "timestamp": 1780479320.0
+  },
+  {
+    "time": "2026-06-03 18:44:06",
+    "content": "<USER_REQUEST>\n붓을 선택해서 예를 들어 원을 그리면 안쪽이 다 선택 영역이 되게 해줘 \n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T18:44:06+09:00.\n</ADDITIONAL_METADATA>",
+    "timestamp": 1780479846.0
+  },
+  {
+    "time": "2026-06-03 18:57:43",
+    "content": "<USER_REQUEST>\n붓으로 그리면 안쪽 영역도 선택된 것처럼 보이지만 실제 효과는 붓으로 그린 영역만 적용돼 \n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T18:57:43+09:00.\n</ADDITIONAL_METADATA>",
+    "timestamp": 1780480663.0
+  },
+  {
+    "time": "2026-06-03 19:27:22",
+    "content": "<USER_REQUEST>\n6번 이미지 찢기는 코드가 최적화 되지 않아 다운되는 현상이 생기고 있어\n다음처럼 효과를 단순화해줘, \n1. 동적인 효과 없음\n2, 지정한 영역들(복수)에 불규칙한 톱니 모양으로 투명 영역 만들기\n3, 필터 옵션: 찢기는 모양의 거칠기 선택용 슬라이드 (매끄러움 0px~  최대 톱니 크기 20px) \n\n\n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T19:27:22+09:00.\n</ADDITIONAL_METADATA>",
+    "timestamp": 1780482442.0
+  },
+  {
+    "time": "2026-06-03 19:32:28",
+    "content": "<USER_REQUEST>\n붓으로 영역 지정할 때 붓의 출발점과 끝점이 만나지 않았는데도 가운데 영역들이 지정되고 있어\n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T19:32:28+09:00.\n</ADDITIONAL_METADATA>",
+    "timestamp": 1780482748.0
+  },
+  {
+    "time": "2026-06-03 20:29:54",
+    "content": "<USER_REQUEST>\n9. 퍼즐 조작화\n\n이미지를 퍼즐맞추기 조각처럼 그려주고(약간 입체감),  영역 선택 부분은 조각이 몇 개 없도록 하고 회전 효과가 적용되게 해줘.  동적 효과 불필요.    \n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T20:29:54+09:00.\n</ADDITIONAL_METADATA>",
+    "timestamp": 1780486194.0
+  }
+]

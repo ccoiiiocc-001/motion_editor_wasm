@@ -1,0 +1,71 @@
+--- a/js/retrofx.js
++++ b/js/retrofx.js
+@@ -642,12 +642,13 @@
+ 
+ fabric.Image.filters.HolePerspective = fabric.util.createClass(fabric.Image.filters.BaseFilter, {
+     type: 'HolePerspective',
+-    amount: 0,
+-    holeSize: 0.45,
+-    depth: 1.2,
+-    vignette: 0.5,
+-    maskObj: null,
+-    applyTo: function(options) {
++    direction: 0,
++    depth: 40,
++    maskObj: null,
++    applyTo: function(options) {
++        // 1. 사용자가 모양(mask)을 지정하기 전까지는 효과 미적용
++        if (!this.maskObj) return;
++
+         const data = options.imageData.data;
+         const w = options.imageData.width;
+         const h = options.imageData.height;
+@@ -654,22 +654,18 @@
+         const cx = w * 0.5;
+         const cy = h * 0.5;
+-        const maxR = Math.min(cx, cy);
+-        const holeR = maxR * Math.max(0.05, Math.min(0.95, this.holeSize));
+-        const amt = Math.max(0, Math.min(1, this.amount));
+-        
+-        if (amt < 0.001) return;
+-
+-        // 원근 깊이: 구멍의 뒷면이 얼마나 멀어보이는지(작아보이는지) 결정
+-        const perspectiveDepth = 0.3 * amt * (this.depth || 1.2); 
+-        const steps = 30; // 레이마칭 해상도
++        
++        const steps = 30;
++        const depthVal = this.depth || 40;
++        
++        // 4. 슬라이더 방향(0~7) 설정
++        const dir = this.direction || 0;
++        const angleDeg = dir * 45;
++        const dxDepth = Math.cos(angleDeg * Math.PI / 180) * depthVal;
++        const dyDepth = Math.sin(angleDeg * Math.PI / 180) * depthVal;
+ 
+         const checkIsHole = (px, py) => {
+             if (px < 0 || px >= w || py < 0 || py >= h) return false;
+-            if (this.mas
+<truncated 6681 bytes>
+: 0.3, max: 2.5, step: 0.05, value: obj.retroSettings.depth, inputType: 'range' },
+-        { id: 'vignette', label: '가장자리 어둡기', min: 0, max: 1, step: 0.05, value: obj.retroSettings.vignette, inputType: 'range' },
+-        { id: 'brushSize', label: '🖌️ 붓 크기', min: 5, max: 150, step: 1, value: obj.retroSettings.brushSize },
+-        { id: 'feather', label: '☁️ 페더', min: 0, max: 100, step: 1, value: obj.retroSettings.feather }
+-    ], (pid, val) => {
+-        obj.retroSettings[pid] = val;
+-        window.globalRetroMemory[id][pid] = val;
+-        if (pid === 'brushSize' && window.maskDrawState?.active && window.canvas.freeDrawingBrush) window.canvas.freeDrawingBrush.width = val;
+-        if (pid !== 'brushSize' && pid !== 'feather') syncFilter();
+-    });
++        { id: 'direction', label: '두께 방향(0~7)', min: 0, max: 7, step: 1, value: obj.retroSettings.direction ?? 0, inputType: 'range' },
++        { id: 'depth', label: '벽 두께', min: 10, max: 100, step: 10, value: obj.retroSettings.depth ?? 40, inputType: 'range' },
++        { id: 'brushSize', label: '🖌️ 붓 크기', min: 5, max: 150, step: 1, value: obj.retroSettings.brushSize },
++        { id: 'feather', label: '☁️ 페더', min: 0, max: 100, step: 1, value: obj.retroSettings.feather }
++    ], (pid, val) => {
++        obj.retroSettings[pid] = val;
++        window.globalRetroMemory[id][pid] = val;
++        if (pid === 'brushSize' && window.maskDrawState?.active && window.canvas.freeDrawingBrush) window.canvas.freeDrawingBrush.width = val;
++        if (pid !== 'brushSize' && pid !== 'feather') syncFilter();
++    });
++    // 애니메이션이 아닌 마스크 그리기 바인딩
+     bindRetroMaskFilter(obj, settings, id, filter, syncFilter);
+ };

@@ -1,0 +1,78 @@
+--- a/js/retrofx.js
++++ b/js/retrofx.js
+@@ -657,39 +657,87 @@
+         const maxR = Math.min(cx, cy);
+         const holeR = maxR * Math.max(0.05, Math.min(0.95, this.holeSize));
+         const amt = Math.max(0, Math.min(1, this.amount));
+-        const power = 0.35 + amt * this.depth * 0.65;
+-
+-        for (let y = 0; y < h; y++) {
+-            for (let x = 0; x < w; x++) {
+-                const dstIdx = (y * w + x) * 4;
+-                const weight = getMaskWeightAt(this.maskObj, x, y, w, h);
+-                const dx = x - cx;
+-                const dy = y - cy;
+-                const r = Math.hypot(dx, dy);
+-                let sx = x;
+-                let sy = y;
+-                let shade = 1;
+-
+-                if (weight > 0.001 && amt > 0.001 && r > 0.5) {
+-                    const norm = Math.min(1, r / holeR);
+-                    if (norm < 1) {
+-                        const mapped = Math.pow(norm, power) * holeR;
+-                        sx = cx + (dx / r) * mapped;
+-                        sy = cy + (dy / r) * mapped;
+-                        shade = 1 - (1 - norm) * this.vignette * amt;
++        
++        if (amt < 0.001) return;
++
++        // 원근 깊이: 구멍의 뒷면이 얼마나 멀어보이는지(작아보이는지) 결정
++        const perspectiveDepth = 0.3 * amt * (this.depth || 1.2); 
++        const steps = 30; // 레이마칭 해상도
++
++        const checkIsHole = (px, py) => {
++            if (px < 0 || px >= w || py < 0 || py >= h) return false;
++            if (this.maskObj) {
++                return getMaskWeightAt(this.maskObj, px, py, w, h) > 0.5;
++            } else {
++                return Math.hypot(px - cx, py - cy) < holeR;
++        
+<truncated 2148 bytes>
+(0.4 + this.vignette * 0.4);
++                        
++                        const shade = Math.max(0, lighting * depthShadow);
++                        
++                        data[dstIdx] = pxColor[0] * shade;
++                        data[dstIdx + 1] = pxColor[1] * shade;
++                        data[dstIdx + 2] = pxColor[2] * shade;
++                        data[dstIdx + 3] = 255; // 불투명한 벽면
+                     } else {
+-                        shade = 1 - this.vignette * 0.25 * amt;
+-                    }
+-                }
+-
+-                const px = sampleBilinear(copyData, w, h, sx, sy);
+-                const rOut = px[0] * shade;
+-                const gOut = px[1] * shade;
+-                const bOut = px[2] * shade;
+-                data[dstIdx] = rOut * weight + copyData[dstIdx] * (1 - weight);
+-                data[dstIdx + 1] = gOut * weight + copyData[dstIdx + 1] * (1 - weight);
+-                data[dstIdx + 2] = bOut * weight + copyData[dstIdx + 2] * (1 - weight);
+-                data[dstIdx + 3] = px[3] * weight + copyData[dstIdx + 3] * (1 - weight);
++                        // 벽을 완전히 관통한 허공 영역 (투명)
++                        data[dstIdx] = 0;
++                        data[dstIdx + 1] = 0;
++                        data[dstIdx + 2] = 0;
++                        data[dstIdx + 3] = 0;
++                    }
++                } else {
++                    // 구멍 밖의 원래 벽 표면
++                    data[dstIdx] = copyData[dstIdx];
++                    data[dstIdx + 1] = copyData[dstIdx + 1];
++                    data[dstIdx + 2] = copyData[dstIdx + 2];
++                    data[dstIdx + 3] = copyData[dstIdx + 3];
++                }
+             }
+         }
+     }

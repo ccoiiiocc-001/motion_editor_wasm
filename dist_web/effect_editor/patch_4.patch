@@ -1,0 +1,57 @@
+--- a/js/retrofx.js
++++ b/js/retrofx.js
+@@ -696,7 +696,7 @@
+                     }
+                     
+                     if (hit) {
+-                        // 5. 회색 벽돌 무늬 적용 (원주율 좌표 u와 깊이 z 활용)
++                        // 5. 회색 벽돌 무늬 적용 (안쪽에서 바깥 방향으로 벽돌이 쌓이도록 Z와 U의 역할 변경)
+                         const nx = hitX - cx;
+                         const ny = hitY - cy;
+                         const R = Math.hypot(nx, ny) || 1;
+@@ -703,24 +703,30 @@
+-                        const u = ang * R; 
+-                        const z = hitT * depthVal;
+-                        
+-                        const brickW = 24;
+-                        const brickH = 12;
+-                        const row = Math.floor(z / brickH);
+-                        let offsetU = u + (row % 2 === 0 ? 0 : brickW / 2);
+-                        offsetU = ((offsetU % brickW) + brickW) % brickW;
+-                        const zIn = z % brickH;
++                        const u = ang * R; // 원주율을 따른 가로 좌표
++                        const z = hitT * depthVal; // 깊이 (0 ~ depthVal)
++                        
++                        const brickL = 50; // 깊이 방향(안쪽->바깥) 벽돌의 긴 변. 최대 두께 100 기준 2장 겹침.
++                        const brickH = 20; // 둘레 방향 벽돌의 짧은 변 높이.
++                        
++                        // 둘레(u)에 따라 층(row)을 결정
++                        const row = Math.floor(u / brickH);
++                        // 각 층마다 깊이(z) 방향으로 절반씩 엇갈리게(겹침) 배치
++                        const offsetZ = (row % 2 === 0) ? 0 : (brickL / 2);
++                        
++                        let shiftedZ = z + offsetZ;
++                        shiftedZ = ((shiftedZ % brickL) + brickL) % brickL;
++                        let shiftedU = ((u % brickH) + brickH) % brickH;
+                         
+                         // 줄눈(Mortar) 판별
+-                        const isMortar = (offsetU < 2 || zIn < 2);
++                        const isMortar = (shiftedZ < 2 || shiftedU < 2);
+                         
+                         let rCol, gCol, bCol;
+                         if (isMortar) {
+-                            rCol = 200; gCol = 200; bCol = 200;
+-                        } else {
+-                            const col = Math.floor(u / brickW) + row * 7;
++                            rCol = 190; gCol = 190; bCol = 190; // 밝은 회색 줄눈
++                        } else {
++                            // 각 벽돌의 고유 식별자로 랜덤 노이즈(명암) 생성
++                            const col = Math.floor((z + offsetZ) / brickL);
+                             const noise = ((Math.abs(row * 37 + col * 19)) % 30) - 15;
+-                            const gray = 140 + noise;
+-                            rCol = gray; gCol = gray; bCol = gray;
++                            const gray = 135 + noise;
++                            rCol = gray; gCol = gray; bCol = gray; // 다크 그레이 벽돌
+                         }
+                         
+                         // 조명 및 그림자 처리

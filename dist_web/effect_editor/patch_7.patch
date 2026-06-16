@@ -1,0 +1,81 @@
+--- a/js/retrofx.js
++++ b/js/retrofx.js
+@@ -252,132 +252,56 @@
+ }
+ 
+ // ----------------------------------------------------------------------------
+-// 6번(tear-static) 초기 구현: ImageTear 필터 (정적)
+-// ----------------------------------------------------------------------------
+-
+-function computeMaskBounds(maskObj) {
+-    if (!maskObj?.data) return null;
+-    const mw = maskObj.width;
+-    const mh = maskObj.height;
+-    let minX = mw;
+-    let minY = mh;
+-    let maxX = 0;
+-    let maxY = 0;
+-    let found = false;
+-    for (let my = 0; my < mh; my++) {
+-        for (let mx = 0; mx < mw; mx++) {
+-            if (maskObj.data[(my * mw + mx) * 4] > 16) {
+-                found = true;
+-                if (mx < minX) minX = mx;
+-                if (mx > maxX) maxX = mx;
+-                if (my < minY) minY = my;
+-                if (my > maxY) maxY = my;
+-            }
+-        }
+-    }
+-    if (!found) return null;
+-    return { minX, minY, maxX, maxY, mw, mh };
+-}
+-
+-function getMaskWeightInTear(maskObj, x, y, w, h) {
+-    if (!maskObj?.data) return 0;
+-    return getMaskWeightAt(maskObj, x, y, w, h);
+-}
+-
+-function clampTearGapPx(v, fallback) {
+-    const n = Number(v);
+-    if (!Number.isFinite(n)) return fallback;
+-    return Math.max(1, Math.min(300, Math.round(n)));
+-}
+-
+-/** 찢김 선 방향으로 t=0 → 시작폭(px), t=1 → 끝점 폭(px) */
+-function getTearGapWidthAt(filter, x, y, imgMinX, imgMaxX, imgMinY, imgMaxY, vertical) {
+-    const legacy = Number(filter.gap);
+-    const startW = clampTearGapPx(filter.startGapWidth, Number.isFinite(legacy) ? Math.max(1, Math.round(legacy * 0.5)) : 11);
+-    let endW = Number(filter.endGapWidth);
+- 
+<truncated 10873 bytes>
+Element('p');
+         hint.style.cssText = 'color:#888;font-size:12px;margin:0 0 12px;line-height:1.45;border-bottom:1px solid #444;padding-bottom:10px';
+-        hint.textContent = '① [영역 지정]으로 찢을 범위를 그린 뒤 완료 → ② 슬라이더로 종이 찢김 모양을 조절하세요. (정적 효과, 애니메이션 없음)';
++        hint.textContent = '① 붓, 사각형, 원형 도구로 원하는 만큼 여러 영역을 그린 후 완료를 누르세요.\n② 톱니 거칠기(0~20)를 조절하여 가장자리의 찢긴 느낌을 조정하세요.';
+         slidersEl.insertBefore(hint, slidersEl.firstChild);
+-
+-        const swapBtn = document.createElement('button');
+-        swapBtn.type = 'button';
+-        swapBtn.textContent = '↔ 시작·끝 폭 방향 바꾸기';
+-        swapBtn.style.cssText = 'width:100%;padding:8px;margin-bottom:10px;background:#455a64;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer';
+-        swapBtn.title = '시작점 폭·끝점 폭이 적용되는 쪽을 반대로';
+-        swapBtn.addEventListener('click', () => {
+-            obj.retroSettings.gapStartAtMin = !obj.retroSettings.gapStartAtMin;
+-            window.globalRetroMemory[id].gapStartAtMin = obj.retroSettings.gapStartAtMin;
+-            if (!obj.retroSettings.maskObj?.data) return;
+-            syncFilter();
+-        });
+-        slidersEl.appendChild(swapBtn);
+-    }
+-
+-    setupMaskUI(id, obj);
+-
+-    if (obj.retroSettings.maskObj?.data) syncFilter();
++    }
++
++    // 마스크(영역) 도구 및 애니메이션 기본 바인딩
++    bindRetroMaskFilter(obj, settings, id, filter, syncFilter);
+ };
+ 
+ function applyPaintDripRetroEffect(obj, settings, id, panelTitle, defaultSettings) {
