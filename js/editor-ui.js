@@ -1,4 +1,4 @@
-﻿const ratioSelect = document.getElementById('ratioSelect');
+const ratioSelect = document.getElementById('ratioSelect');
 const bgInput = document.getElementById('bgInput');
 const videoInput = document.getElementById('videoInput');
 const imageInput = document.getElementById('imageInput');
@@ -320,7 +320,7 @@ window.updatePropertyPanel = function(customObj) {
         if (obj.isTimedSubtitleClip && typeof window.getTimedSubtitleActiveCue === 'function') {
             const cue = window.getTimedSubtitleActiveCue(obj);
             subtitleTextInput.value = cue ? cue.text : '';
-            subtitleTextInput.placeholder = cue ? '' : '?ъ깮 ?ㅻ뱶瑜??먮쭑 援ш컙?쇰줈 ?대룞?섎㈃ ?대떦 以꾩쓣 ?몄쭛?????덉뒿?덈떎';
+            subtitleTextInput.placeholder = '';
         } else {
             subtitleTextInput.value = obj.text || '';
             subtitleTextInput.placeholder = '';
@@ -347,6 +347,7 @@ window.updatePropertyPanel = function(customObj) {
         document.querySelectorAll('.prop-scale-group').forEach(el => el.style.display = el.classList.contains('flex-row-center') ? 'flex' : 'block');
         if (obj.isVideo) {
             document.querySelectorAll('.prop-media').forEach(el => el.style.display = el.classList.contains('flex-row-center') ? 'flex' : 'block');
+            document.querySelectorAll('.prop-image-mask').forEach(el => el.style.display = 'block');
             if (obj.getElement()) propVolume.value = Math.round((obj.baseVolume !== undefined ? obj.baseVolume : obj.getElement().volume) * 100);
         } else if (obj.type === 'image') {
             document.querySelectorAll('.prop-image-mask').forEach(el => el.style.display = 'block');

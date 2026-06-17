@@ -40,14 +40,14 @@ if (!$is_allowed) {
   <script defer src="js/media-duration.js"></script>
   <script defer src="js/media-dispose.js"></script>
   <script defer src="js/effect-editor-bridge.js?v=<?php echo filemtime('js/effect-editor-bridge.js'); ?>"></script>
-  <script defer src="js/editor-events.js"></script>
-  <script defer src="js/timeline-placement.js"></script>
-  <script defer src="js/timeline-state.js"></script>
-  <script defer src="js/timeline-guides.js"></script>
-  <script defer src="js/timeline-core.js"></script>
-  <script defer src="js/timeline-events.js"></script>
-  <script type="module" src="js/auto-subtitle.js"></script>
-  <script type="module" src="js/lyrics-subtitle.js"></script>
+  <script defer src="js/editor-events.js?v=<?php echo filemtime('js/editor-events.js'); ?>"></script>
+  <script defer src="js/timeline-placement.js?v=<?php echo filemtime('js/timeline-placement.js'); ?>"></script>
+  <script defer src="js/timeline-state.js?v=<?php echo filemtime('js/timeline-state.js'); ?>"></script>
+  <script defer src="js/timeline-guides.js?v=<?php echo filemtime('js/timeline-guides.js'); ?>"></script>
+  <script defer src="js/timeline-core.js?v=<?php echo filemtime('js/timeline-core.js'); ?>"></script>
+  <script defer src="js/timeline-events.js?v=<?php echo filemtime('js/timeline-events.js'); ?>"></script>
+  <script type="module" src="js/auto-subtitle.js?v=<?php echo filemtime('js/auto-subtitle.js'); ?>"></script>
+  <script type="module" src="js/lyrics-subtitle.js?v=<?php echo filemtime('js/lyrics-subtitle.js'); ?>"></script>
 </head>
 <body>
   <!-- 에디터 초기화 지연 감춤용 오버레이 (레이아웃 틀어짐 방지) -->
@@ -148,12 +148,12 @@ if (!$is_allowed) {
               style="color:#1e293b;font-weight:800;font-size:11px;display:flex;align-items:center;margin-bottom:8px;position:relative;cursor:pointer;">
               전환효과, 파란선 기준
               <span class="info-icon"
-                onclick="var p = this.nextElementSibling; p.classList.remove('hidden'); var r = this.getBoundingClientRect(); p.style.top = (r.bottom + 5) + 'px'; p.style.left = r.left + 'px';"
+                onclick="var p = this.nextElementSibling; p.classList.remove('hidden'); var r = this.getBoundingClientRect(); p.style.top = (r.botton - 45) + 'px'; p.style.left = r.left + 'px';"
                 style="margin-left:4px;background:#8fa5be;color:white;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;">i</span>
               <div class="info-popup hidden"
                 style="position:fixed;margin:0;background:white;border:1px solid #cbd5e1;padding:8px;border-radius:6px;font-size:10px;color:#475569;width:200px;z-index:999999;box-shadow:0 4px 10px rgba(0,0,0,0.15);font-weight:normal;line-height:1.4;cursor:default;">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;font-weight:bold;color:#1e293b;">안내 <span onclick="event.stopPropagation(); this.closest('.info-popup').classList.add('hidden')" style="cursor:pointer;font-size:14px;padding:0 4px;color:#94a3b8;line-height:1;">&times;</span></div>
-                파란선은 클립의 가장자리 좌우화살표를 더블클릭하면 나타납니다.</div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;font-weight:bold;color:#1e293b;"><span onclick="event.stopPropagation(); this.closest('.info-popup').classList.add('hidden')" style="cursor:pointer;font-size:14px;padding:0 4px;color:#94a3b8;line-height:1;">&times;</span></div>
+                파란선은 클립의 가장자리 좌우화살표를 더블클릭하면 나타납니다. 전환효과 선택 후 트랙 버튼을 누르면 해당 타임라인 전체 클립에 적용됩니다.</div>
             </label>
             <div style="display:flex; gap:4px;">
               <select id="propTransitionSelect"
@@ -196,9 +196,9 @@ if (!$is_allowed) {
           <div class="prop-group prop-image-mask" style="margin-top: 5px; margin-bottom: 5px;">
             <label style="margin-bottom: 4px; display: block;">캔버스 크기에 맞추기</label>
             <div style="display:flex; gap: 4px;">
-              <button type="button" onclick="if(window.fitObjectToCanvas) window.fitObjectToCanvas('fill')" style="flex:1; height:24px; border:none; border-radius:4px; background:#e2e8f0; cursor:pointer;" title="비율 무시하고 100% 맞추기">전체</button>
-              <button type="button" onclick="if(window.fitObjectToCanvas) window.fitObjectToCanvas('width')" style="flex:1; height:24px; border:none; border-radius:4px; background:#e2e8f0; cursor:pointer;" title="가로 비율 유지하여 맞추기">가로</button>
-              <button type="button" onclick="if(window.fitObjectToCanvas) window.fitObjectToCanvas('height')" style="flex:1; height:24px; border:none; border-radius:4px; background:#e2e8f0; cursor:pointer;" title="세로 비율 유지하여 맞추기">세로</button>
+              <button type="button" onclick="if(window.fitObjectToCanvas) window.fitObjectToCanvas('fill')" style="flex:1; height:20px; border:none; border-radius:3px;font-size:10px;background:#e2e8f0; cursor:pointer;" title="비율 무시하고 100% 맞추기">전체</button>
+              <button type="button" onclick="if(window.fitObjectToCanvas) window.fitObjectToCanvas('width')" style="flex:1; height:20px; border:none; border-radius:3px;font-size:10px; background:#e2e8f0; cursor:pointer;" title="가로 비율 유지하여 맞추기">가로</button>
+              <button type="button" onclick="if(window.fitObjectToCanvas) window.fitObjectToCanvas('height')" style="flex:1; height:20px; border:none; border-radius:3px;font-size:10px; background:#e2e8f0; cursor:pointer;" title="세로 비율 유지하여 맞추기">세로</button>
             </div>
           </div>
           <div class="prop-group prop-common prop-scale-group flex-row-center">
@@ -211,32 +211,17 @@ if (!$is_allowed) {
           </div>
           <div class="compact-grid">
             <div class="prop-group prop-text" style="grid-column: span 2;">
-              <label>폰트 (구글 웹폰트 & 내 PC 폰트)</label>
-              <div style="display:flex; gap:6px;">
-                <div style="position:relative; flex:1;">
-                  <button type="button" id="fontBtn"
-                    style="width:100%; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; background:white; text-align:left; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:12px; font-weight:bold; height:24px; box-sizing:border-box;">
-                    <span id="fontLabel" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">구글
-                      폰트</span>
-                    <svg style="width:14px; height:14px; flex-shrink:0;" fill="none" stroke="#94a3b8"
-                      viewBox="0 0 24 24">
-                      <path d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                  </button>
-                  <div id="fontList" class="dropdown-list hidden" style="max-height:60vh;"></div>
-                </div>
-                <div style="position:relative; flex:1;">
-                  <button type="button" id="localFontBtn"
-                    style="width:100%; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; background:white; text-align:left; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:12px; font-weight:bold; color:#2563eb; height:24px; box-sizing:border-box;">
-                    <span id="localFontLabel" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">내 PC
-                      폰트</span>
-                    <svg style="width:14px; height:14px; flex-shrink:0;" fill="none" stroke="currentColor"
-                      viewBox="0 0 24 24">
-                      <path d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                  </button>
-                  <div id="localFontList" class="dropdown-list hidden" style="max-height:60vh;"></div>
-                </div>
+              <label>폰트 선택</label>
+              <div style="position:relative; width:100%;">
+                <button type="button" id="fontBtn"
+                  style="width:100%; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; background:white; text-align:left; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:12px; font-weight:bold; height:24px; box-sizing:border-box;">
+                  <span id="fontLabel" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Pretendard</span>
+                  <svg style="width:14px; height:14px; flex-shrink:0;" fill="none" stroke="#94a3b8"
+                    viewBox="0 0 24 24">
+                    <path d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </button>
+                <div id="fontList" class="dropdown-list hidden" style="max-height:60vh;"></div>
               </div>
             </div>
 

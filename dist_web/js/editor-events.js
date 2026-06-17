@@ -1,3 +1,43 @@
+// Monkeypatch fabric.Image to support video alpha mask without converting to static canvas
+if (typeof fabric !== 'undefined' && fabric.Image && !fabric.Image.prototype.__videoPatched) {
+    const originalRender = fabric.Image.prototype._render;
+    fabric.Image.prototype._render = function(ctx) {
+        const el = this.getElement();
+        if (el instanceof HTMLVideoElement) {
+            try {
+                ctx.imageSmoothingQuality = "high";
+                const cx = this.cropX || 0;
+                const cy = this.cropY || 0;
+                const cw = this.width;
+                const ch = this.height;
+                
+                if (this.videoMaskCanvas) {
+                    if (!this._offscreenCanvas) {
+                        this._offscreenCanvas = document.createElement('canvas');
+                    }
+                    if (this._offscreenCanvas.width !== cw) this._offscreenCanvas.width = cw;
+                    if (this._offscreenCanvas.height !== ch) this._offscreenCanvas.height = ch;
+                    const octx = this._offscreenCanvas.getContext('2d');
+                    octx.clearRect(0, 0, cw, ch);
+                    
+                    octx.drawImage(el, cx, cy, cw, ch, 0, 0, cw, ch);
+                    
+                    octx.globalCompositeOperation = 'destination-in';
+                    octx.drawImage(this.videoMaskCanvas, 0, 0, cw, ch);
+                    octx.globalCompositeOperation = 'source-over';
+                    
+                    ctx.drawImage(this._offscreenCanvas, -this.width/2, -this.height/2, this.width, this.height);
+                } else {
+                    ctx.drawImage(el, cx, cy, cw, ch, -this.width/2, -this.height/2, this.width, this.height);
+                }
+            } catch(e) {}
+        } else {
+            originalRender.call(this, ctx);
+        }
+    };
+    fabric.Image.prototype.__videoPatched = true;
+}
+
 function drawCheckerboard(canvasEl) { if (!canvasEl) return; const ctx = canvasEl.getContext('2d'); const w = canvasEl.width; const h = canvasEl.height; ctx.clearRect(0, 0, w, h); const size = 5; for (let y = 0; y < h; y += size) { for (let x = 0; x < w; x += size) { ctx.fillStyle = ((x / size + y / size) % 2 === 0) ? '#e2e8f0' : '#cbd5e1'; ctx.fillRect(x, y, size, size); } } }
 function updateBrushIndicator() { if (!brushIndicator) return; const size = Math.max(4, Math.min(currentDrawWidth, 50)); brushIndicator.style.width = size + 'px'; brushIndicator.style.height = size + 'px'; let op = currentDrawOpacity; let rgbStr = hexToRgb(currentDrawColor); brushIndicator.style.backgroundColor = rgbStr.replace('rgb(', 'rgba(').replace(')', `,${op})`); }
 function initPickers() {
@@ -1503,8 +1543,8 @@ const fontItalicBtn = document.getElementById('fontItalicBtn');
 if (fontNormalBtn) { fontNormalBtn.onclick = () => { const obj = canvas.getActiveObject(); if (obj && obj.type === 'i-text') { window.saveHistorySnapshot(); obj.set({ fontWeight: 'normal', fontStyle: 'normal' }); canvas.requestRenderAll(); if (window.updatePropertyPanel) window.updatePropertyPanel(obj); } }; }
 if (fontBoldBtn) { fontBoldBtn.onclick = () => { const obj = canvas.getActiveObject(); if (obj && obj.type === 'i-text') { window.saveHistorySnapshot(); obj.set({ fontWeight: obj.fontWeight === 'bold' ? 'normal' : 'bold' }); canvas.requestRenderAll(); if (window.updatePropertyPanel) window.updatePropertyPanel(obj); } }; }
 if (fontItalicBtn) { fontItalicBtn.onclick = () => { const obj = canvas.getActiveObject(); if (obj && obj.type === 'i-text') { window.saveHistorySnapshot(); obj.set({ fontStyle: obj.fontStyle === 'italic' ? 'normal' : 'italic' }); canvas.requestRenderAll(); if (window.updatePropertyPanel) window.updatePropertyPanel(obj); } }; }
-if (savePresetBtn) { savePresetBtn.onclick = () => { const obj = canvas.getActiveObject(); if (!obj || obj.type !== 'i-text') { window.showToast('자막을 선택하세요'); return; } const name = presetNameInput.value.trim(); if (!name) { window.showToast('프리셋 이름을 입력하세요'); return; } const bOp = obj.baseOpacity !== undefined ? obj.baseOpacity : obj.opacity; const bSx = obj.baseScaleX !== undefined ? obj.baseScaleX : obj.scaleX; const bSy = obj.baseScaleY !== undefined ? obj.baseScaleY : obj.scaleY; const bAng = obj.baseAngle !== undefined ? obj.baseAngle : obj.angle; const bL = obj.baseLeft !== undefined ? obj.baseLeft : obj.left; const bT = obj.baseTop !== undefined ? obj.baseTop : obj.top; subtitlePresets[name] = { text: obj.text, fontFamily: obj.fontFamily, fontSize: obj.fontSize, fill: obj.fill, charSpacing: obj.charSpacing, strokeWidth: obj.strokeWidth, stroke: obj.stroke, lineHeight: obj.lineHeight, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle, textAlign: obj.textAlign, left: bL, top: bT, angle: bAng, scaleX: bSx, scaleY: bSy, opacity: bOp, baseLeft: bL, baseTop: bT, baseAngle: bAng, baseScaleX: bSx, baseScaleY: bSy, baseOpacity: bOp, shadow: obj.shadow ? { blur: obj.shadow.blur, color: obj.shadow.color } : null }; localStorage.setItem('subtitlePresets', JSON.stringify(subtitlePresets)); refreshPresetList(); presetSelect.value = name; window.showToast('프리셋 저장 완료'); }; }
-if (loadPresetBtn) { loadPresetBtn.onclick = () => { const obj = canvas.getActiveObject(); if (!obj || obj.type !== 'i-text') { window.showToast('자막을 선택하세요'); return; } const name = presetSelect.value; if (!name || !subtitlePresets[name]) { window.showToast('프리셋을 선택하세요'); return; } window.saveHistorySnapshot(); const p = subtitlePresets[name]; const bOp = p.baseOpacity !== undefined ? p.baseOpacity : (p.opacity ? p.opacity : 1); const bSx = p.baseScaleX !== undefined ? p.baseScaleX : (p.scaleX !== undefined ? p.scaleX : 1); const bSy = p.baseScaleY !== undefined ? p.baseScaleY : (p.scaleY !== undefined ? p.scaleY : 1); const bAng = p.baseAngle !== undefined ? p.baseAngle : (p.angle !== undefined ? p.angle : 0); const bL = p.baseLeft !== undefined ? p.baseLeft : (p.left !== undefined ? p.left : obj.left); const bT = p.baseTop !== undefined ? p.baseTop : (p.top !== undefined ? p.top : obj.top); obj.set({ text: p.text !== undefined ? p.text : obj.text, fontFamily: p.fontFamily, fontSize: p.fontSize, fill: p.fill, charSpacing: p.charSpacing, strokeWidth: p.strokeWidth, stroke: p.stroke, lineHeight: p.lineHeight, fontWeight: p.fontWeight || 'normal', fontStyle: p.fontStyle || 'normal', textAlign: p.textAlign || 'left', opacity: bOp, baseOpacity: bOp, scaleX: bSx, baseScaleX: bSx, scaleY: bSy, baseScaleY: bSy, angle: bAng, baseAngle: bAng, left: bL, baseLeft: bL, top: bT, baseTop: bT }); if (p.shadow) { obj.set('shadow', new fabric.Shadow({ blur: 0, offsetX: p.shadow.offsetX !== undefined ? p.shadow.offsetX : (p.shadow.blur || 0), offsetY: p.shadow.offsetY !== undefined ? p.shadow.offsetY : (p.shadow.blur || 0), color: p.shadow.color })); } else { obj.set('shadow', null); } canvas.requestRenderAll(); window.updatePropertyPanel(obj); window.showToast('프리셋 적용 완료'); }; }
+if (savePresetBtn) { savePresetBtn.onclick = () => { const obj = canvas.getActiveObject(); if (!obj || obj.type !== 'i-text') { window.showToast('자막을 선택하세요'); return; } const name = presetNameInput.value.trim(); if (!name) { window.showToast('프리셋 이름을 입력하세요'); return; } const bOp = obj.baseOpacity !== undefined ? obj.baseOpacity : obj.opacity; const bSx = obj.baseScaleX !== undefined ? obj.baseScaleX : obj.scaleX; const bSy = obj.baseScaleY !== undefined ? obj.baseScaleY : obj.scaleY; const bAng = obj.baseAngle !== undefined ? obj.baseAngle : obj.angle; const bL = obj.baseLeft !== undefined ? obj.baseLeft : obj.left; const bT = obj.baseTop !== undefined ? obj.baseTop : obj.top; subtitlePresets[name] = { text: obj.text, fontFamily: obj.fontFamily, fontSize: obj.fontSize, fill: obj.fill, charSpacing: obj.charSpacing, strokeWidth: obj.strokeWidth, stroke: obj.stroke, lineHeight: obj.lineHeight, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle, textAlign: obj.textAlign, left: bL, top: bT, angle: bAng, scaleX: bSx, scaleY: bSy, opacity: bOp, baseLeft: bL, baseTop: bT, baseAngle: bAng, baseScaleX: bSx, baseScaleY: bSy, baseOpacity: bOp, shadow: obj.shadow ? { blur: obj.shadow.blur, color: obj.shadow.color, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY } : null }; localStorage.setItem('subtitlePresets', JSON.stringify(subtitlePresets)); refreshPresetList(); presetSelect.value = name; window.showToast('프리셋 저장 완료'); }; }
+if (loadPresetBtn) { loadPresetBtn.onclick = () => { const obj = canvas.getActiveObject(); if (!obj || obj.type !== 'i-text') { window.showToast('자막을 선택하세요'); return; } const name = presetSelect.value; if (!name || !subtitlePresets[name]) { window.showToast('프리셋을 선택하세요'); return; } window.saveHistorySnapshot(); const p = subtitlePresets[name]; const bOp = p.baseOpacity !== undefined ? p.baseOpacity : (p.opacity ? p.opacity : 1); const bSx = p.baseScaleX !== undefined ? p.baseScaleX : (p.scaleX !== undefined ? p.scaleX : 1); const bSy = p.baseScaleY !== undefined ? p.baseScaleY : (p.scaleY !== undefined ? p.scaleY : 1); const bAng = p.baseAngle !== undefined ? p.baseAngle : (p.angle !== undefined ? p.angle : 0); const bL = p.baseLeft !== undefined ? p.baseLeft : (p.left !== undefined ? p.left : obj.left); const bT = p.baseTop !== undefined ? p.baseTop : (p.top !== undefined ? p.top : obj.top); obj.set({ text: p.text !== undefined ? p.text : obj.text, fontFamily: p.fontFamily, fontSize: p.fontSize, fill: p.fill, charSpacing: p.charSpacing, strokeWidth: p.strokeWidth, stroke: p.stroke, lineHeight: p.lineHeight, fontWeight: p.fontWeight || 'normal', fontStyle: p.fontStyle || 'normal', textAlign: p.textAlign || 'left', opacity: bOp, baseOpacity: bOp, scaleX: bSx, baseScaleX: bSx, scaleY: bSy, baseScaleY: bSy, angle: bAng, baseAngle: bAng, left: bL, baseLeft: bL, top: bT, baseTop: bT }); if (p.shadow) { obj.set('shadow', new fabric.Shadow({ blur: p.shadow.blur !== undefined ? p.shadow.blur : 0, offsetX: p.shadow.offsetX !== undefined ? p.shadow.offsetX : (p.shadow.blur || 0), offsetY: p.shadow.offsetY !== undefined ? p.shadow.offsetY : (p.shadow.blur || 0), color: p.shadow.color })); } else { obj.set('shadow', null); } canvas.requestRenderAll(); window.updatePropertyPanel(obj); window.showToast('프리셋 적용 완료'); }; }
 if (deletePresetBtn) { deletePresetBtn.onclick = () => { const name = presetSelect.value; if (!name) return; delete subtitlePresets[name]; localStorage.setItem('subtitlePresets', JSON.stringify(subtitlePresets)); refreshPresetList(); window.showToast('프리셋 삭제 완료'); }; }
 if (bgBtn) bgBtn.onclick = () => { if (bgInput) bgInput.value = ''; bgInput.click(); };
 if (videoBtn) videoBtn.onclick = () => { if (videoInput) videoInput.value = ''; videoInput.click(); };
@@ -2343,6 +2383,27 @@ function renderFontList(containerId, type = 'all') {
     const el = document.getElementById(containerId);
     if (!el) return;
     el.innerHTML = '';
+
+    // 최상단에 로컬 폰트 동기화 버튼 추가 (브라우저가 지원하는 경우)
+    if (window.queryLocalFonts) {
+        const syncItem = document.createElement('div');
+        syncItem.className = 'font-item';
+        syncItem.style.background = '#f0f9ff';
+        syncItem.style.borderBottom = '1px solid #bae6fd';
+        syncItem.style.justifyContent = 'center';
+        syncItem.style.fontWeight = 'bold';
+        syncItem.style.color = '#0284c7';
+        syncItem.style.fontSize = '12px';
+        syncItem.style.cursor = 'pointer';
+        syncItem.innerHTML = '🔄 PC 폰트 가져오기 / 동기화';
+        syncItem.onclick = async (e) => {
+            e.stopPropagation();
+            if (window.showToast) window.showToast("PC 폰트 동기화 시작...");
+            await fetchLocalFonts();
+        };
+        el.appendChild(syncItem);
+    }
+
     let all = (type === 'google') ? [...googleFonts] : (type === 'local') ? [...localFonts] : [...googleFonts, ...localFonts];
     all = [...new Set(all)];
     all.sort((a, b) => {
@@ -2370,9 +2431,8 @@ function renderFontList(containerId, type = 'all') {
 window.applyFont = function (n) {
     updateObj('fontFamily', n);
     if (document.getElementById('fontLabel')) document.getElementById('fontLabel').textContent = n;
-    if (document.getElementById('localFontLabel')) document.getElementById('localFontLabel').textContent = n;
-    document.getElementById('fontList').classList.add('hidden');
-    document.getElementById('localFontList').classList.add('hidden');
+    const fontList = document.getElementById('fontList');
+    if (fontList) fontList.classList.add('hidden');
     document.fonts.load(`10px "${n}"`).then(() => canvas.requestRenderAll());
 };
 
@@ -2390,7 +2450,7 @@ window.fetchLocalFonts = async () => {
         const f = await window.queryLocalFonts();
         localFonts = [...new Set(f.map(x => x.family))];
         localStorage.setItem('shorts_local_fonts', JSON.stringify(localFonts));
-        renderFontList('localFontList', 'local');
+        renderFontList('fontList', 'all');
         if (window.showToast) window.showToast("폰트 동기화 완료!");
     } catch (e) {
         console.error("폰트 접근 권한 거부됨.");
@@ -2399,46 +2459,32 @@ window.fetchLocalFonts = async () => {
 };
 
 const fontBtn = document.getElementById('fontBtn');
-const localFontBtn = document.getElementById('localFontBtn');
 
 if (fontBtn) {
     fontBtn.onclick = (e) => {
         e.stopPropagation();
-        document.getElementById('localFontList').classList.add('hidden');
         const list = document.getElementById('fontList');
+        if (!list) return;
+        
+        const isOpening = list.classList.contains('hidden');
         list.classList.toggle('hidden');
-        if (!list.classList.contains('hidden')) renderFontList('fontList', 'google');
-    };
-}
-
-if (localFontBtn) {
-    localFontBtn.onclick = (e) => {
-        e.stopPropagation();
-        document.getElementById('fontList').classList.add('hidden');
-        const list = document.getElementById('localFontList');
-
-        if (localFonts.length === 0 && window.queryLocalFonts) {
-            fetchLocalFonts().then(() => {
-                list.classList.remove('hidden');
-                renderFontList('localFontList', 'local');
-            });
-        } else if (localFonts.length === 0) {
-            if (window.showToast) window.showToast("이 브라우저는 로컬 폰트 동기화를 지원하지 않습니다.");
-        } else {
-            list.classList.toggle('hidden');
-            if (!list.classList.contains('hidden')) renderFontList('localFontList', 'local');
+        
+        if (isOpening) {
+            // 캐시된 폰트로 목록을 즉시 렌더링
+            renderFontList('fontList', 'all');
+            
+            // 최초 1회만 자동 동기화 (아직 데이터가 비어있을 때만)
+            if (localFonts.length === 0 && window.queryLocalFonts) {
+                fetchLocalFonts();
+            }
         }
     };
 }
 
 document.addEventListener('click', (e) => {
     const fontList = document.getElementById('fontList');
-    const localFontList = document.getElementById('localFontList');
     if (fontList && !fontList.contains(e.target) && e.target !== fontBtn && !fontBtn.contains(e.target)) {
         fontList.classList.add('hidden');
-    }
-    if (localFontList && !localFontList.contains(e.target) && e.target !== localFontBtn && !localFontBtn.contains(e.target)) {
-        localFontList.classList.add('hidden');
     }
 });
 window.onload = () => { if (window.updateRatioUI) window.updateRatioUI(); else { if (ratioSelect) ratioSelect.value = currentRatio; setCanvasSize(); } refreshPresetList(); initPickers(); if (typeof window.renderTracks === 'function') window.renderTracks(); if (typeof window.updateTimelineUI === 'function') window.updateTimelineUI(); window.updatePropertyPanel(); };
@@ -3384,4 +3430,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     updateDrawPresetSelect();
 });
+
+if (typeof imageAlphaEditBtn !== 'undefined' && imageAlphaEditBtn) {
+    imageAlphaEditBtn.addEventListener('click', () => {
+        if (typeof window.openImageAlphaEditor === 'function') {
+            window.openImageAlphaEditor();
+        } else {
+            console.error("openImageAlphaEditor is not defined");
+        }
+    });
+}
+
 

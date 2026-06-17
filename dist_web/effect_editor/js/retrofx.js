@@ -6,14 +6,14 @@ const retroFxNames = {
     6: "이미지 찢기", 7: "물감 흘러내림(유화)", 8: "벽에 구멍 뚫기", 9: "퍼즐 조각화", 10: "두루말이 만들기",
     11: "호수 잔물결", 12: "소용돌이 물결", 13: "세로 폭포 왜곡", 14: "깨진 유리창 효과", 15: "물방울 파동",
     16: "수면 굴절", 17: "만다라 효과", 18: "기름막 무지개 왜곡", 19: "얼음 큐브 굴절", 20: "비 오는 유리창",
-    21: "매직아이 생성"
+    21: "매직아이 생성", 22: "일본식 미닫이 문"
 };
 window.retroFxNames = retroFxNames;
 
 const retroFxContainer = document.getElementById('retro-fx-container');
 if (retroFxContainer) {
     retroFxContainer.innerHTML = ''; 
-    for (let i = 1; i <= 21; i++) {
+    for (let i = 1; i <= 22; i++) {
         const btn = document.createElement('button');
         btn.innerText = i + ". " + (retroFxNames[i] || "특수 효과 " + i);
         btn.style.background = "#ff9800"; 
@@ -7490,5 +7490,267 @@ window.applyRetroEffect21 = function(obj, settings, id) {
         validate: () => !!(isReady || obj.retroSettings.depthMapData),
         validateMessage: "먼저 '4. 🛠️ 심도 맵 만들기'로 형상을 준비해 주세요.",
         skipHint: true
+    });
+};
+
+
+// 💡 22번: 일본식 미닫이 문 (Japanese Sliding Door)
+window.applyRetroEffect22 = function(obj, settings, id) {
+    if (typeof window.restoreFabricImageFromOriginal === 'function') window.restoreFabricImageFromOriginal(obj);
+    if (typeof window.ensureFabricOriginalElement === 'function') window.ensureFabricOriginalElement(obj);
+    
+    if (!window.globalRetroMemory[id]) {
+        window.globalRetroMemory[id] = {
+            startPoint: 25,
+            speed: 5,
+            phase: 0,
+            brushSize: 40,
+            feather: 20,
+            maskObj: null
+        };
+    }
+    const mem = window.globalRetroMemory[id];
+    if (mem.startPoint === undefined) mem.startPoint = 25;
+    if (mem.speed === undefined) mem.speed = 5;
+    if (mem.phase === undefined) mem.phase = 0;
+    
+    obj.retroSettings = { ...window.globalRetroMemory[id], activeFxId: id, effectStarted: false };
+    
+    if (!fabric.Image.filters.SlidingDoor) {
+        fabric.Image.filters.SlidingDoor = fabric.util.createClass(fabric.Image.filters.BaseFilter, {
+            type: 'SlidingDoor',
+            startPoint: 25,
+            progress: 0,
+            maskObj: null,
+            applyTo: function(options) {
+                const data = options.imageData.data;
+                const w = options.imageData.width;
+                const h = options.imageData.height;
+                const copyData = new Uint8ClampedArray(data);
+                
+                const startPoint = Number(this.startPoint);
+                const progressLoop = Number(this.progress) % 25;
+                
+                // Shadow width in normalized coordinates (0 to 200 scale)
+                const shadowWidthNorm = 12.0; 
+                
+                // Helper to render traditional Japanese Shoji wood frame and paper panel
+                function getShojiColor(u, v, imgR, imgG, imgB, imgA) {
+                    const borderX = 0.05; // 5% border width
+                    const borderY = 0.04; // 4% border height
+                    
+                    const gridX = 0.012; // vertical lattice thickness
+                    const gridY = 0.008; // horizontal lattice thickness
+                    
+                    // Check outer frame borders
+                    const isBorder = (u < borderX || u > 1 - borderX || v < borderY || v > 1 - borderY);
+                    
+                    // Check vertical grid lines (2 lines: at 1/3 and 2/3)
+                    const isVertGrid = (Math.abs(u - 0.33) < gridX || Math.abs(u - 0.66) < gridX);
+                    
+                    // Check horizontal grid lines (4 lines: at 0.2, 0.4, 0.6, 0.8)
+                    const isHorizGrid = (
+                        Math.abs(v - 0.2) < gridY || 
+                        Math.abs(v - 0.4) < gridY || 
+                        Math.abs(v - 0.6) < gridY || 
+                        Math.abs(v - 0.8) < gridY
+                    );
+                    
+                    if (isBorder || isVertGrid || isHorizGrid) {
+                        // Warm wood frame brown with subtle grain variation
+                        const grain = 1.0 + 0.08 * Math.sin(u * 120 + v * 240);
+                        return {
+                            r: Math.max(0, Math.min(255, Math.round(75 * grain))),
+                            g: Math.max(0, Math.min(255, Math.round(45 * grain))),
+                            b: Math.max(0, Math.min(255, Math.round(25 * grain))),
+                            a: imgA
+                        };
+                    } else {
+                        // Translucent white Shoji paper: blend with image content
+                        const paperR = 248;
+                        const paperG = 246;
+                        const paperB = 240;
+                        return {
+                            r: Math.round(imgR * 0.85 + paperR * 0.15),
+                            g: Math.round(imgG * 0.85 + paperG * 0.15),
+                            b: Math.round(imgB * 0.85 + paperB * 0.15),
+                            a: imgA
+                        };
+                    }
+                }
+                
+                for (let y = 0; y < h; y++) {
+                    const v = y / (h - 1);
+                    for (let x = 0; x < w; x++) {
+                        const dstIdx = (y * w + x) * 4;
+                        const weight = getMaskWeightAt(this.maskObj, x, y, w, h);
+                        
+                        let finalR = copyData[dstIdx];
+                        let finalG = copyData[dstIdx+1];
+                        let finalB = copyData[dstIdx+2];
+                        let finalA = copyData[dstIdx+3];
+                        
+                        if (weight > 0.001) {
+                            const xNorm = (x / (w - 1)) * 200 - 100;
+                            let mappedX = null;
+                            let doorK = null;
+                            let doorShift = 0;
+                            
+                            if (xNorm >= 0) {
+                                // Check doors from k = 4 down to 0 to find the topmost overlapping door first
+                                for (let k = 4; k >= 0; k--) {
+                                    const shift = progressLoop + 25 * k;
+                                    const innerEdge = startPoint + shift;
+                                    if (innerEdge > 100) continue;
+                                    if (xNorm >= innerEdge) {
+                                        doorK = k;
+                                        doorShift = shift;
+                                        const xOrigNorm = xNorm - shift;
+                                        mappedX = Math.round(((xOrigNorm + 100) / 200) * (w - 1));
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // Left doors: check from k = 4 down to 0
+                                for (let k = 4; k >= 0; k--) {
+                                    const shift = progressLoop + 25 * k;
+                                    const innerEdge = -startPoint - shift;
+                                    if (innerEdge < -100) continue;
+                                    if (xNorm <= innerEdge) {
+                                        doorK = k;
+                                        doorShift = shift;
+                                        const xOrigNorm = xNorm + shift;
+                                        mappedX = Math.round(((xOrigNorm + 100) / 200) * (w - 1));
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            let r = 0, g = 0, b = 0, a = 0;
+                            if (mappedX !== null && doorK !== null) {
+                                mappedX = Math.max(0, Math.min(w - 1, mappedX));
+                                const srcIdx = (y * w + mappedX) * 4;
+                                const srcR = copyData[srcIdx];
+                                const srcG = copyData[srcIdx+1];
+                                const srcB = copyData[srcIdx+2];
+                                const srcA = copyData[srcIdx+3];
+                                
+                                const xOrigNorm = (xNorm >= 0) ? (xNorm - doorShift) : (xNorm + doorShift);
+                                let uVal = 0;
+                                if (xNorm >= 0) {
+                                    uVal = (xOrigNorm - startPoint) / (100 - startPoint);
+                                } else {
+                                    uVal = (xOrigNorm + 100) / (100 - startPoint);
+                                }
+                                uVal = Math.max(0, Math.min(1, uVal));
+                                
+                                const shoji = getShojiColor(uVal, v, srcR, srcG, srcB, srcA);
+                                r = shoji.r;
+                                g = shoji.g;
+                                b = shoji.b;
+                                a = shoji.a;
+                                
+                                // Apply drop shadow from the door in front (doorK + 1)
+                                if (doorK < 4) {
+                                    let shadowFactor = 1.0;
+                                    if (xNorm >= 0) {
+                                        const frontEdge = startPoint + progressLoop + 25 * (doorK + 1);
+                                        const dist = frontEdge - xNorm;
+                                        if (dist > 0 && dist < shadowWidthNorm) {
+                                            shadowFactor = 0.45 + 0.55 * (dist / shadowWidthNorm);
+                                        }
+                                    } else {
+                                        const frontEdge = -startPoint - (progressLoop + 25 * (doorK + 1));
+                                        const dist = xNorm - frontEdge;
+                                        if (dist > 0 && dist < shadowWidthNorm) {
+                                            shadowFactor = 0.45 + 0.55 * (dist / shadowWidthNorm);
+                                        }
+                                    }
+                                    r = Math.round(r * shadowFactor);
+                                    g = Math.round(g * shadowFactor);
+                                    b = Math.round(b * shadowFactor);
+                                }
+                            } else {
+                                r = 0; g = 0; b = 0; a = 0;
+                            }
+                            
+                            finalR = r * weight + copyData[dstIdx] * (1 - weight);
+                            finalG = g * weight + copyData[dstIdx+1] * (1 - weight);
+                            finalB = b * weight + copyData[dstIdx+2] * (1 - weight);
+                            finalA = a * weight + copyData[dstIdx+3] * (1 - weight);
+                        }
+                        
+                        data[dstIdx] = finalR;
+                        data[dstIdx+1] = finalG;
+                        data[dstIdx+2] = finalB;
+                        data[dstIdx+3] = finalA;
+                    }
+                }
+            }
+        });
+        if (typeof registerFabricCustomFilterFromObject === 'function') {
+            registerFabricCustomFilterFromObject(fabric.Image.filters.SlidingDoor);
+        }
+    }
+    
+    const sync22 = (o) => {
+        let f = o.filters?.find(x => x.type === 'SlidingDoor');
+        if (!f) {
+            f = new fabric.Image.filters.SlidingDoor({
+                startPoint: Number(o.retroSettings.startPoint),
+                progress: Number(o.retroSettings.phase) * Number(o.retroSettings.speed),
+                maskObj: o.retroSettings.maskObj
+            });
+            o.filters = [f];
+        } else {
+            f.startPoint = Number(o.retroSettings.startPoint);
+            f.progress = Number(o.retroSettings.phase) * Number(o.retroSettings.speed);
+            f.maskObj = o.retroSettings.maskObj;
+        }
+        o.dirty = true;
+        window.applyRetroImageFilterNow(o);
+    };
+    
+    window.showFilterControls('일본식 미닫이 문', [
+        {
+            id: 'startPoint',
+            label: '출발점 설정',
+            inputType: 'select',
+            value: String(obj.retroSettings.startPoint),
+            options: [
+                { value: '0', label: '0 (중앙)' },
+                { value: '25', label: '±25' },
+                { value: '50', label: '±50' }
+            ]
+        },
+        { id: 'speed', label: '열림 속도', min: 1, max: 20, step: 1, value: obj.retroSettings.speed, inputType: 'range' },
+        { id: 'brushSize', label: '🖌️ 붓 크기', min: 5, max: 150, step: 1, value: obj.retroSettings.brushSize },
+        { id: 'feather', label: '☁️ 경계선 흐림 (페더)', min: 0, max: 100, step: 1, value: obj.retroSettings.feather }
+    ], (pid, val) => {
+        if (pid === 'startPoint') val = Number(val);
+        obj.retroSettings[pid] = val;
+        window.globalRetroMemory[id][pid] = val;
+        if (pid === 'brushSize' && window.maskDrawState?.active && window.maskDrawState.tool === 'brush' && window.canvas.freeDrawingBrush) {
+            window.canvas.freeDrawingBrush.width = val;
+        }
+        if (pid !== 'brushSize' && pid !== 'feather' && window.isRetroEffectStarted(obj)) {
+            sync22(obj);
+        }
+    });
+    
+    setupMaskUI(id, obj);
+    
+    window.mountRetroEffectStartButton(obj, settings, id, (o, s) => {
+        sync22(o);
+        o.retroSettings.phase = 0;
+        o.activeTween = gsap.to(o.retroSettings, {
+            phase: 25 * s.duration,
+            duration: s.duration,
+            repeat: s.repeat,
+            ease: 'none',
+            onUpdate: () => {
+                sync22(o);
+            }
+        });
     });
 };

@@ -210,7 +210,7 @@
         applyFilterPreset(obj, settings, id, mix, { hue: 0.5, noise: 200, brightness: 0.2 });
     }
 
-    const NATIVE_IMPLEMENTED = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 31]);
+    const NATIVE_IMPLEMENTED = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 22, 31]);
 
     for (let id = 1; id <= 100; id++) {
         const fnName = 'applyRetroEffect' + id;

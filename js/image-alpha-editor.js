@@ -18,20 +18,20 @@
     let pctx;
 
     function setStatus(text) {
-        const el = $('effectAlphaStatus');
+        const el = $('imageAlphaStatus');
         if (el) el.textContent = text;
     }
 
     function getTargetImageObject() {
         const obj = window.canvas?.getActiveObject?.() || window.lastSelectedObj;
-        if (!obj || obj.type !== 'image' || !obj.getElement?.()) return null;
+        if (!obj || ((obj.type !== 'image' && !obj.isVideo) && !obj.isVideo) || !obj.getElement?.()) return null;
         return obj;
     }
 
     function trackSelection() {
         if (!window.canvas) return;
         const remember = (obj) => {
-            if (obj?.type === 'image' && obj.getElement?.()) window.lastSelectedObj = obj;
+            if (((obj?.type === 'image' || obj?.isVideo) || obj?.isVideo) && obj.getElement?.()) window.lastSelectedObj = obj;
         };
         window.canvas.on('selection:created', (e) => remember(e.selected?.[0] || e.target));
         window.canvas.on('selection:updated', (e) => remember(e.selected?.[0] || e.target));
@@ -49,7 +49,7 @@
     }
 
     function setCanvasCssSize() {
-        const stage = document.querySelector('#effectAlphaModal .image-alpha-stage');
+        const stage = document.querySelector('#imageAlphaModal .image-alpha-stage');
         if (!stage || !canvasEl || !previewEl) return;
         const maxW = Math.max(240, stage.clientWidth - 24);
         const maxH = Math.max(180, stage.clientHeight - 24);
@@ -176,7 +176,7 @@
     }
 
     function eraseBrush(from, to) {
-        const size = Number($('effectAlphaBrushSize')?.value || 28);
+        const size = Number($('imageAlphaBrushSize')?.value || 28);
         eraseWithPath((c) => {
             c.lineWidth = size;
             c.beginPath();
@@ -272,6 +272,49 @@
         });
     }
 
+    if (typeof window.isImageElementReadable !== 'function') {
+        window.isImageElementReadable = function(el) {
+            if (!el) return false;
+            if (el instanceof HTMLCanvasElement) return el.width > 0 && el.height > 0;
+            if (el instanceof HTMLImageElement) return el.complete && el.naturalWidth > 0 && el.naturalHeight > 0;
+            if (el instanceof HTMLVideoElement || (el && el.tagName === 'VIDEO')) return el.readyState >= 2 && el.videoWidth > 0 && el.videoHeight > 0;
+            return false;
+        };
+    }
+
+    if (typeof window.cloneElementToCanvas !== 'function') {
+        window.cloneElementToCanvas = function(el) {
+            if (!window.isImageElementReadable(el)) return null;
+            const w = el.naturalWidth || el.videoWidth || el.width;
+            const h = el.naturalHeight || el.videoHeight || el.height;
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(el, 0, 0, w, h);
+            return canvas;
+        };
+    }
+
+    if (typeof window.ensureFabricOriginalElement !== 'function') {
+        window.ensureFabricOriginalElement = function(obj) {
+            if (!obj || (obj.type !== 'image' && !obj.isVideo)) return null;
+            const current = obj.originalElement;
+            if (current instanceof HTMLCanvasElement && current.width > 0 && current.height > 0) {
+                return current;
+            }
+            const candidates = [current, obj.getElement?.()].filter(Boolean);
+            for (const src of candidates) {
+                if (!window.isImageElementReadable(src)) continue;
+                const canvas = window.cloneElementToCanvas(src);
+                if (canvas) {
+                    obj.originalElement = canvas;
+                    return canvas;
+                }
+            }
+            return null;
+        };
+    }
+
     async function getImageSourceForObject(obj) {
         if (typeof window.ensureFabricOriginalElement === 'function') {
             window.ensureFabricOriginalElement(obj);
@@ -279,10 +322,18 @@
         const el = obj.getElement();
         if (!el) throw new Error('missing fabric image element');
 
-        const base = (obj.originalElement instanceof HTMLCanvasElement && obj.originalElement.width > 0)
-            ? obj.originalElement
-            : (window.isImageElementReadable?.(el) ? window.cloneElementToCanvas(el) : null)
-            || (window.isImageElementReadable?.(obj.originalElement) ? window.cloneElementToCanvas(obj.originalElement) : null);
+        let base = null;
+        if (el instanceof HTMLVideoElement || (el && el.tagName === 'VIDEO')) {
+            base = document.createElement('canvas');
+            base.width = el.videoWidth || el.width || 640;
+            base.height = el.videoHeight || el.height || 480;
+            base.getContext('2d').drawImage(el, 0, 0, base.width, base.height);
+        } else {
+            base = (obj.originalElement instanceof HTMLCanvasElement && obj.originalElement.width > 0)
+                ? obj.originalElement
+                : (window.isImageElementReadable?.(el) ? window.cloneElementToCanvas(el) : null)
+                || (window.isImageElementReadable?.(obj.originalElement) ? window.cloneElementToCanvas(obj.originalElement) : null);
+        }
 
         if (!base) throw new Error('cannot read image source');
         return imageFromCanvas(base);
@@ -296,7 +347,7 @@
         }
         
         const el = obj.getElement();
-        if (el instanceof HTMLVideoElement) {
+        if (el instanceof HTMLVideoElement || (el && el.tagName === 'VIDEO')) {
             el.pause();
             const btn = document.getElementById('video-play-pause-btn');
             if (btn) { btn.textContent = '▶'; btn.title = '재생'; }
@@ -322,7 +373,7 @@
         } catch (e) {
             console.error(e);
             state.target = null;
-            alert('이미지를 편집창에 불러오지 못했습니다.');
+            alert('이미지를 편집창에 불러오지 못했습니다.\n오류: ' + e.message);
         }
     }
 
@@ -337,50 +388,60 @@
     }
 
     async function applyToCanvas() {
-        if (!state.target) return;
-        const obj = state.target;
-        const persisted = typeof window.cloneElementToCanvas === 'function'
-            ? window.cloneElementToCanvas(canvasEl)
-            : null;
-        if (!persisted) return;
-        
-        if (obj.getElement() instanceof HTMLVideoElement) {
-            // Do not replace the video element with a static canvas.
-            // Instead, attach the mask canvas to the object and flag it to be processed during rendering.
-            obj.videoMaskCanvas = persisted;
-            obj.dirty = true;
-        } else {
-            const keep = {
-                left: obj.left,
-                top: obj.top,
-                scaleX: obj.scaleX,
-                scaleY: obj.scaleY,
-                angle: obj.angle,
-                originX: obj.originX,
-                originY: obj.originY
-            };
-            obj.setElement(persisted);
-            obj.originalElement = persisted;
-            obj.set({
-                width: persisted.width,
-                height: persisted.height,
-                ...keep
-            });
-            obj.setCoords();
-            obj.dirty = true;
+        try {
+            if (!state.target) return;
+            const obj = state.target;
+            
+            const persisted = document.createElement('canvas');
+            persisted.width = canvasEl.width;
+            persisted.height = canvasEl.height;
+            persisted.getContext('2d').drawImage(canvasEl, 0, 0);
+            
+            if (!persisted || persisted.width === 0) {
+                alert("Failed to create mask canvas");
+                return;
+            }
+            
+            const videoEl = obj.getElement();
+            if (videoEl instanceof HTMLVideoElement || (videoEl && videoEl.tagName === 'VIDEO')) {
+                obj.videoMaskCanvas = persisted;
+                obj.dirty = true;
+            } else {
+                const keep = {
+                    left: obj.left,
+                    top: obj.top,
+                    scaleX: obj.scaleX,
+                    scaleY: obj.scaleY,
+                    angle: obj.angle,
+                    originX: obj.originX,
+                    originY: obj.originY
+                };
+                obj.setElement(persisted);
+                obj.originalElement = persisted;
+                obj.set({
+                    width: persisted.width,
+                    height: persisted.height,
+                    ...keep
+                });
+                obj.setCoords();
+                obj.dirty = true;
+            }
+            
+            if (window.canvas) {
+                window.canvas.requestRenderAll();
+                window.canvas.setActiveObject(obj);
+            }
+            closeModal();
+        } catch (e) {
+            console.error(e);
+            alert('저장 중 오류 발생: ' + e.message);
         }
-        
-        if (window.canvas) {
-            window.canvas.requestRenderAll();
-            window.canvas.setActiveObject(obj);
-        }
-        closeModal();
     }
 
     function init() {
-        modal = $('effectAlphaModal');
-        canvasEl = $('effectAlphaCanvas');
-        previewEl = $('effectAlphaPreviewCanvas');
+        modal = $('imageAlphaModal');
+        canvasEl = $('imageAlphaCanvas');
+        previewEl = $('imageAlphaPreviewCanvas');
         if (!modal || !canvasEl || !previewEl) return;
         ctx = canvasEl.getContext('2d');
         pctx = previewEl.getContext('2d');
@@ -388,22 +449,22 @@
         trackSelection();
 
         $('alpha-edit-toggle-btn')?.addEventListener('click', openForSelectedImage);
-        $('effectAlphaCloseBtn')?.addEventListener('click', closeModal);
-        $('effectAlphaApplyBtn')?.addEventListener('click', applyToCanvas);
-        $('effectAlphaUndoBtn')?.addEventListener('click', () => {
+        $('imageAlphaCloseBtn')?.addEventListener('click', closeModal);
+        $('imageAlphaApplyBtn')?.addEventListener('click', applyToCanvas);
+        $('imageAlphaUndoBtn')?.addEventListener('click', () => {
             const prev = state.history.pop();
             if (prev) ctx.putImageData(prev, 0, 0);
         });
-        $('effectAlphaResetBtn')?.addEventListener('click', () => {
+        $('imageAlphaResetBtn')?.addEventListener('click', () => {
             if (!state.original) return;
             pushHistory();
             ctx.putImageData(state.original, 0, 0);
             clearPreview();
         });
-        document.querySelectorAll('#effectAlphaModal .image-alpha-tool').forEach((btn) => {
+        document.querySelectorAll('#imageAlphaModal .image-alpha-tool').forEach((btn) => {
             btn.addEventListener('click', () => {
                 state.tool = btn.dataset.tool || 'brush';
-                document.querySelectorAll('#effectAlphaModal .image-alpha-tool').forEach((b) => b.classList.toggle('active', b === btn));
+                document.querySelectorAll('#imageAlphaModal .image-alpha-tool').forEach((b) => b.classList.toggle('active', b === btn));
             });
         });
         previewEl.addEventListener('pointerdown', handleDown);
@@ -421,5 +482,5 @@
         init();
     }
 
-    window.openEffectAlphaEditor = openForSelectedImage;
+    window.openImageAlphaEditor = openForSelectedImage;
 })();

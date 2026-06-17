@@ -40,14 +40,14 @@ if (!$is_allowed) {
   <script defer src="js/media-duration.js"></script>
   <script defer src="js/media-dispose.js"></script>
   <script defer src="js/effect-editor-bridge.js?v=<?php echo filemtime('js/effect-editor-bridge.js'); ?>"></script>
-  <script defer src="js/editor-events.js"></script>
-  <script defer src="js/timeline-placement.js"></script>
-  <script defer src="js/timeline-state.js"></script>
-  <script defer src="js/timeline-guides.js"></script>
-  <script defer src="js/timeline-core.js"></script>
-  <script defer src="js/timeline-events.js"></script>
-  <script type="module" src="js/auto-subtitle.js"></script>
-  <script type="module" src="js/lyrics-subtitle.js"></script>
+  <script defer src="js/editor-events.js?v=<?php echo filemtime('js/editor-events.js'); ?>"></script>
+  <script defer src="js/timeline-placement.js?v=<?php echo filemtime('js/timeline-placement.js'); ?>"></script>
+  <script defer src="js/timeline-state.js?v=<?php echo filemtime('js/timeline-state.js'); ?>"></script>
+  <script defer src="js/timeline-guides.js?v=<?php echo filemtime('js/timeline-guides.js'); ?>"></script>
+  <script defer src="js/timeline-core.js?v=<?php echo filemtime('js/timeline-core.js'); ?>"></script>
+  <script defer src="js/timeline-events.js?v=<?php echo filemtime('js/timeline-events.js'); ?>"></script>
+  <script type="module" src="js/auto-subtitle.js?v=<?php echo filemtime('js/auto-subtitle.js'); ?>"></script>
+  <script type="module" src="js/lyrics-subtitle.js?v=<?php echo filemtime('js/lyrics-subtitle.js'); ?>"></script>
 </head>
 <body>
   <!-- 에디터 초기화 지연 감춤용 오버레이 (레이아웃 틀어짐 방지) -->
@@ -211,32 +211,17 @@ if (!$is_allowed) {
           </div>
           <div class="compact-grid">
             <div class="prop-group prop-text" style="grid-column: span 2;">
-              <label>폰트 (구글 웹폰트 & 내 PC 폰트)</label>
-              <div style="display:flex; gap:6px;">
-                <div style="position:relative; flex:1;">
-                  <button type="button" id="fontBtn"
-                    style="width:100%; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; background:white; text-align:left; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:12px; font-weight:bold; height:24px; box-sizing:border-box;">
-                    <span id="fontLabel" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">구글
-                      폰트</span>
-                    <svg style="width:14px; height:14px; flex-shrink:0;" fill="none" stroke="#94a3b8"
-                      viewBox="0 0 24 24">
-                      <path d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                  </button>
-                  <div id="fontList" class="dropdown-list hidden" style="max-height:60vh;"></div>
-                </div>
-                <div style="position:relative; flex:1;">
-                  <button type="button" id="localFontBtn"
-                    style="width:100%; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; background:white; text-align:left; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:12px; font-weight:bold; color:#2563eb; height:24px; box-sizing:border-box;">
-                    <span id="localFontLabel" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">내 PC
-                      폰트</span>
-                    <svg style="width:14px; height:14px; flex-shrink:0;" fill="none" stroke="currentColor"
-                      viewBox="0 0 24 24">
-                      <path d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                  </button>
-                  <div id="localFontList" class="dropdown-list hidden" style="max-height:60vh;"></div>
-                </div>
+              <label>폰트 선택</label>
+              <div style="position:relative; width:100%;">
+                <button type="button" id="fontBtn"
+                  style="width:100%; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; background:white; text-align:left; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:12px; font-weight:bold; height:24px; box-sizing:border-box;">
+                  <span id="fontLabel" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Pretendard</span>
+                  <svg style="width:14px; height:14px; flex-shrink:0;" fill="none" stroke="#94a3b8"
+                    viewBox="0 0 24 24">
+                    <path d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </button>
+                <div id="fontList" class="dropdown-list hidden" style="max-height:60vh;"></div>
               </div>
             </div>
 
