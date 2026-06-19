@@ -2369,5 +2369,228 @@ window.applySubtitleProperty = function (key, value) {
                 alignRight.classList.add('active');
             });
         }
+
+        // ── 텍스트/자막 투명도 및 회전 조절 ──
+        const textOpacity = document.getElementById('propTextOpacity');
+        const textOpacityNum = document.getElementById('propTextOpacityNum');
+        const textAngle = document.getElementById('propTextAngle');
+        const textAngleNum = document.getElementById('propTextAngleNum');
+
+        if (textOpacity && textOpacityNum) {
+            const handleTextOpacityChange = (val) => {
+                const pct = Math.max(10, Math.min(100, parseInt(val) || 100));
+                textOpacity.value = pct;
+                textOpacityNum.value = pct;
+                
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    activeObject.set('opacity', pct / 100);
+                    canvas.requestRenderAll();
+                }
+            };
+            textOpacity.addEventListener('input', (e) => handleTextOpacityChange(e.target.value));
+            textOpacityNum.addEventListener('input', (e) => handleTextOpacityChange(e.target.value));
+        }
+
+        if (textAngle && textAngleNum) {
+            const handleTextAngleChange = (val) => {
+                const deg = (parseInt(val) || 0) % 360;
+                textAngle.value = deg;
+                textAngleNum.value = deg;
+
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    activeObject.set('angle', deg);
+                    canvas.requestRenderAll();
+                }
+            };
+            textAngle.addEventListener('input', (e) => handleTextAngleChange(e.target.value));
+            textAngleNum.addEventListener('input', (e) => handleTextAngleChange(e.target.value));
+        }
+
+        // ── 이미지 투명도 및 회전 조절 ──
+        const imgOpacity = document.getElementById('propImageOpacity');
+        const imgOpacityNum = document.getElementById('propImageOpacityNum');
+        const imgAngle = document.getElementById('propImageAngle');
+        const imgAngleNum = document.getElementById('propImageAngleNum');
+
+        if (imgOpacity && imgOpacityNum) {
+            const handleImgOpacityChange = (val) => {
+                const pct = Math.max(10, Math.min(100, parseInt(val) || 100));
+                imgOpacity.value = pct;
+                imgOpacityNum.value = pct;
+
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'image') {
+                    activeObject.set('opacity', pct / 100);
+                    canvas.requestRenderAll();
+                }
+            };
+            imgOpacity.addEventListener('input', (e) => handleImgOpacityChange(e.target.value));
+            imgOpacityNum.addEventListener('input', (e) => handleImgOpacityChange(e.target.value));
+        }
+
+        if (imgAngle && imgAngleNum) {
+            const handleImgAngleChange = (val) => {
+                const deg = (parseInt(val) || 0) % 360;
+                imgAngle.value = deg;
+                imgAngleNum.value = deg;
+
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'image') {
+                    activeObject.set('angle', deg);
+                    canvas.requestRenderAll();
+                }
+            };
+            imgAngle.addEventListener('input', (e) => handleImgAngleChange(e.target.value));
+            imgAngleNum.addEventListener('input', (e) => handleImgAngleChange(e.target.value));
+        }
+
+        // ── 프리셋 CRUD 버튼 이벤트 바인딩 ──
+        const presetSelect = document.getElementById('propTextPresetSelect');
+        const presetLoadBtn = document.getElementById('propTextPresetLoadBtn');
+        const presetSaveBtn = document.getElementById('propTextPresetSaveBtn');
+        const presetDeleteBtn = document.getElementById('propTextPresetDeleteBtn');
+
+        if (presetLoadBtn && presetSelect) {
+            presetLoadBtn.addEventListener('click', function() {
+                const activeObject = canvas.getActiveObject();
+                if (!activeObject || activeObject.type !== 'i-text') {
+                    alert('프리셋을 적용할 자막 레이어를 선택하세요.');
+                    return;
+                }
+                const name = presetSelect.value;
+                if (!name) {
+                    alert('적용할 프리셋을 선택하세요.');
+                    return;
+                }
+
+                let presets = {};
+                try { presets = JSON.parse(localStorage.getItem('subtitlePresets') || '{}'); } catch(_) {}
+                const p = presets[name];
+                if (!p) return;
+
+                // 프리셋 데이터를 Fabric IText 객체에 입히기
+                if (typeof window.applySubtitlePresetToFabricText === 'function') {
+                    window.applySubtitlePresetToFabricText(activeObject, name, { keepText: true, keepPosition: true });
+                } else {
+                    activeObject.set({
+                        fontFamily: p.fontFamily,
+                        fontSize: p.fontSize,
+                        fill: p.fill,
+                        charSpacing: p.charSpacing,
+                        strokeWidth: p.strokeWidth,
+                        stroke: p.stroke,
+                        lineHeight: p.lineHeight,
+                        fontWeight: p.fontWeight || 'normal',
+                        fontStyle: p.fontStyle || 'normal',
+                        textAlign: p.textAlign || 'left',
+                        opacity: p.opacity !== undefined ? p.opacity : 1,
+                        angle: p.angle || 0
+                    });
+                    if (p.shadow) {
+                        activeObject.set('shadow', new fabric.Shadow({
+                            blur: p.shadow.blur || 0,
+                            offsetX: p.shadow.offsetX !== undefined ? p.shadow.offsetX : (p.shadow.blur || 0),
+                            offsetY: p.shadow.offsetY !== undefined ? p.shadow.offsetY : (p.shadow.blur || 0),
+                            color: p.shadow.color
+                        }));
+                    } else {
+                        activeObject.set('shadow', null);
+                    }
+                }
+                
+                canvas.requestRenderAll();
+                window.updateTextPropertyPanel(activeObject);
+                alert('프리셋 스타일을 적용했습니다.');
+            });
+        }
+
+        if (presetSaveBtn) {
+            presetSaveBtn.addEventListener('click', function() {
+                const activeObject = canvas.getActiveObject();
+                if (!activeObject || activeObject.type !== 'i-text') {
+                    alert('스타일을 저장할 자막 레이어를 선택하세요.');
+                    return;
+                }
+                const name = prompt('저장할 자막 프리셋 이름을 입력해 주세요 (메인과 공유됨):');
+                if (!name || !name.trim()) return;
+                const trimmedName = name.trim();
+
+                let presets = {};
+                try { presets = JSON.parse(localStorage.getItem('subtitlePresets') || '{}'); } catch(_) {}
+
+                if (presets[trimmedName]) {
+                    if (!confirm(`이미 '${trimmedName}' 프리셋이 존재합니다. 덮어씌우시겠습니까?`)) {
+                        return;
+                    }
+                }
+
+                const bOp = activeObject.opacity;
+                const bSx = activeObject.scaleX;
+                const bSy = activeObject.scaleY;
+                const bAng = activeObject.angle;
+                const bL = activeObject.left;
+                const bT = activeObject.top;
+
+                presets[trimmedName] = {
+                    text: activeObject.text,
+                    fontFamily: activeObject.fontFamily,
+                    fontSize: activeObject.fontSize,
+                    fill: activeObject.fill,
+                    charSpacing: activeObject.charSpacing,
+                    strokeWidth: activeObject.strokeWidth,
+                    stroke: activeObject.stroke,
+                    lineHeight: activeObject.lineHeight,
+                    fontWeight: activeObject.fontWeight || 'normal',
+                    fontStyle: activeObject.fontStyle || 'normal',
+                    textAlign: activeObject.textAlign || 'left',
+                    left: bL,
+                    top: bT,
+                    angle: bAng,
+                    scaleX: bSx,
+                    scaleY: bSy,
+                    opacity: bOp,
+                    baseLeft: bL,
+                    baseTop: bT,
+                    baseAngle: bAng,
+                    baseScaleX: bSx,
+                    baseScaleY: bSy,
+                    baseOpacity: bOp,
+                    shadow: activeObject.shadow ? {
+                        blur: activeObject.shadow.blur,
+                        color: activeObject.shadow.color,
+                        offsetX: activeObject.shadow.offsetX,
+                        offsetY: activeObject.shadow.offsetY
+                    } : null
+                };
+
+                localStorage.setItem('subtitlePresets', JSON.stringify(presets));
+                window.refreshEffectTextPresets();
+                presetSelect.value = trimmedName;
+                alert('자막 프리셋을 저장 완료했습니다.');
+            });
+        }
+
+        if (presetDeleteBtn && presetSelect) {
+            presetDeleteBtn.addEventListener('click', function() {
+                const name = presetSelect.value;
+                if (!name) {
+                    alert('삭제할 프리셋을 먼저 선택해 주세요.');
+                    return;
+                }
+                if (!confirm(`'${name}' 프리셋을 영구 삭제하시겠습니까? (메인에서도 삭제됨)`)) {
+                    return;
+                }
+
+                let presets = {};
+                try { presets = JSON.parse(localStorage.getItem('subtitlePresets') || '{}'); } catch(_) {}
+                delete presets[name];
+
+                localStorage.setItem('subtitlePresets', JSON.stringify(presets));
+                window.refreshEffectTextPresets();
+                alert('자막 프리셋이 삭제되었습니다.');
+            });
+        }
     }, 500);
 })();
