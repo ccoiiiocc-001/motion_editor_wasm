@@ -2070,7 +2070,7 @@ window.updateTextPropertyPanel = function (obj) {
     if (textPanel) textPanel.style.display = 'block';
 
     const txtContent = document.getElementById('propTextContent');
-    const fontFamily = document.getElementById('propFontFamily');
+    const fontLabel = document.getElementById('propFontLabel');
     const fontSize = document.getElementById('propFontSize');
     const fill = document.getElementById('propFill');
     const strokeWidth = document.getElementById('propStrokeWidth');
@@ -2082,18 +2082,8 @@ window.updateTextPropertyPanel = function (obj) {
     const lineHeight = document.getElementById('propLineHeight');
 
     if (txtContent) txtContent.value = obj.text || '';
-    if (fontFamily) {
-        const val = obj.fontFamily || 'Pretendard, Arial, sans-serif';
-        // 정확하게 일치하는 옵션 선택
-        let matched = false;
-        for (const opt of fontFamily.options) {
-            if (opt.value === val) {
-                fontFamily.value = val;
-                matched = true;
-                break;
-            }
-        }
-        if (!matched) fontFamily.value = "Pretendard, Arial, sans-serif";
+    if (fontLabel) {
+        fontLabel.textContent = obj.fontFamily || 'Pretendard';
     }
     if (fontSize) fontSize.value = obj.fontSize || 80;
     if (fill) fill.value = obj.fill || '#ffffff';
@@ -2592,5 +2582,144 @@ window.applySubtitleProperty = function (key, value) {
                 alert('자막 프리셋이 삭제되었습니다.');
             });
         }
+
+        // ── 폰트 선택 드롭다운 버튼 토글 이벤트 바인딩 ──
+        const fontBtn = document.getElementById('propFontBtn');
+        const fontList = document.getElementById('propFontList');
+        if (fontBtn && fontList) {
+            fontBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                fontList.classList.toggle('hidden');
+                if (!fontList.classList.contains('hidden')) {
+                    window.refreshEffectTextFontList();
+                    // 최초 1회만 자동 동기화 (아직 데이터가 비어있을 때만)
+                    const cachedLocal = JSON.parse(localStorage.getItem('shorts_local_fonts') || '[]');
+                    if (cachedLocal.length === 0 && window.queryLocalFonts) {
+                        window.fetchEffectLocalFonts();
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            if (fontList && !fontList.contains(e.target) && e.target !== fontBtn && !fontBtn?.contains(e.target)) {
+                fontList.classList.add('hidden');
+            }
+        });
     }, 500);
 })();
+
+// ── 폰트 리스트 렌더링 및 로컬 폰트 동기화 로직 ──
+const effectGoogleFonts = ['Pretendard', 'Black Han Sans', 'Do Hyeon', 'Jua', 'Noto Sans KR', 'Nanum Gothic', 'Nanum Myeongjo', 'Dancing Script', 'Pacifico', 'Satisfy', 'Great Vibes'];
+let effectLocalFonts = JSON.parse(localStorage.getItem('shorts_local_fonts')) || [];
+let effectFavoriteFonts = JSON.parse(localStorage.getItem('shorts_fav_fonts')) || [];
+
+window.refreshEffectTextFontList = function() {
+    const el = document.getElementById('propFontList');
+    if (!el) return;
+    el.innerHTML = '';
+
+    // PC 폰트 가져오기 동기화 버튼 (브라우저 queryLocalFonts 지원 시)
+    if (window.queryLocalFonts) {
+        const syncItem = document.createElement('div');
+        syncItem.className = 'font-item';
+        syncItem.style.background = '#0e3a40';
+        syncItem.style.borderBottom = '1px solid #115e59';
+        syncItem.style.justifyContent = 'center';
+        syncItem.style.fontWeight = 'bold';
+        syncItem.style.color = '#00bcd4';
+        syncItem.style.fontSize = '11px';
+        syncItem.style.cursor = 'pointer';
+        syncItem.innerHTML = '🔄 PC 글꼴 가져오기 / 동기화';
+        syncItem.onclick = async (e) => {
+            e.stopPropagation();
+            alert("PC 글꼴 동기화를 시작합니다. 브라우저 권한을 수락해 주세요.");
+            await window.fetchEffectLocalFonts();
+        };
+        el.appendChild(syncItem);
+    }
+
+    // 최신 로컬/즐겨찾기 상태 갱신
+    effectLocalFonts = JSON.parse(localStorage.getItem('shorts_local_fonts')) || [];
+    effectFavoriteFonts = JSON.parse(localStorage.getItem('shorts_fav_fonts')) || [];
+
+    let all = [...effectGoogleFonts, ...effectLocalFonts];
+    all = [...new Set(all)];
+    all.sort((a, b) => {
+        const aF = effectFavoriteFonts.includes(a), bF = effectFavoriteFonts.includes(b);
+        return aF && !bF ? -1 : !aF && bF ? 1 : a.localeCompare(b);
+    });
+
+    const activeObject = window.canvas ? window.canvas.getActiveObject() : null;
+    const currentFont = activeObject ? activeObject.fontFamily : 'Pretendard';
+
+    all.forEach(f => {
+        const i = document.createElement('div');
+        const isS = (f === currentFont || (currentFont && currentFont.indexOf(f) === 0));
+        const isF = effectFavoriteFonts.includes(f);
+        i.className = `font-item ${isS ? 'selected' : ''}`;
+        i.innerHTML = `
+            <div class="font-info">
+                <div class="font-name">${f}</div>
+                <div class="font-preview" style="font-family:'${f}', sans-serif;">가나다 ABC</div>
+            </div>
+            <button class="star-fav ${isF ? 'active' : ''}">★</button>
+        `;
+        
+        // 글꼴 클릭 시 적용
+        const info = i.querySelector('.font-info');
+        if (info) {
+            info.onclick = (e) => {
+                e.stopPropagation();
+                window.applyEffectTextFont(f);
+            };
+        }
+        
+        // 즐겨찾기 별 클릭 시 토글
+        const favBtn = i.querySelector('.star-fav');
+        if (favBtn) {
+            favBtn.onclick = (e) => {
+                e.stopPropagation();
+                window.toggleEffectFontFav(f);
+            };
+        }
+        
+        el.appendChild(i);
+    });
+};
+
+window.applyEffectTextFont = function (n) {
+    window.applySubtitleProperty('fontFamily', n);
+    const label = document.getElementById('propFontLabel');
+    if (label) label.textContent = n;
+    const list = document.getElementById('propFontList');
+    if (list) list.classList.add('hidden');
+    
+    document.fonts.load(`10px "${n}"`).then(() => {
+        if (window.canvas) window.canvas.requestRenderAll();
+    });
+};
+
+window.toggleEffectFontFav = function (f) {
+    if (effectFavoriteFonts.includes(f)) {
+        effectFavoriteFonts = effectFavoriteFonts.filter(x => x !== f);
+    } else {
+        effectFavoriteFonts.push(f);
+    }
+    localStorage.setItem('shorts_fav_fonts', JSON.stringify(effectFavoriteFonts));
+    window.refreshEffectTextFontList();
+};
+
+window.fetchEffectLocalFonts = async () => {
+    try {
+        if (!window.queryLocalFonts) return;
+        const f = await window.queryLocalFonts();
+        effectLocalFonts = [...new Set(f.map(x => x.family))];
+        localStorage.setItem('shorts_local_fonts', JSON.stringify(effectLocalFonts));
+        window.refreshEffectTextFontList();
+        alert("PC 글꼴 목록 동기화가 완료되었습니다.");
+    } catch (err) {
+        console.error("Fetch local fonts failed:", err);
+        alert("글꼴 동기화 실패: 권한을 허용하지 않았거나 브라우저에서 차단되었습니다.");
+    }
+};

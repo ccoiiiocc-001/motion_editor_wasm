@@ -85,7 +85,7 @@
                 </div>
                 <iframe id="effectEditorFrame" src="about:blank"
                     style="flex:1;border:none;background:#1e1e1e;"
-                    allow="clipboard-write"></iframe>
+                    allow="clipboard-write; local-fonts"></iframe>
             </div>
         `;
         document.body.appendChild(overlay);

@@ -222,15 +222,16 @@
 
                     <div class="prop-group">
                         <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">글꼴</label>
-                        <select id="propFontFamily" style="width:100%; padding:6px; background:#333; color:#00bcd4; border:1px solid #00bcd4; border-radius:4px; font-weight:bold; font-size:12px; outline:none;">
-                            <option value="Pretendard, Arial, sans-serif">Pretendard</option>
-                            <option value="GmarketSansMedium, sans-serif">GmarketSans</option>
-                            <option value="KoPubWorldDotum, sans-serif">KoPubWorld돋움</option>
-                            <option value="NanumSquareRound, sans-serif">나눔스퀘어라운드</option>
-                            <option value="Cafe24Ssurround, sans-serif">카페24써라운드</option>
-                            <option value="Arial">Arial</option>
-                            <option value="Courier New">Courier New</option>
-                        </select>
+                        <div style="position:relative; width:100%;">
+                            <button type="button" id="propFontBtn"
+                              style="width:100%; padding:6px 10px; border:1px solid #00bcd4; border-radius:6px; background:#333; color:#00bcd4; text-align:left; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:12px; font-weight:bold; height:28px; box-sizing:border-box; outline:none;">
+                              <span id="propFontLabel" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Pretendard</span>
+                              <svg style="width:14px; height:14px; flex-shrink:0;" fill="none" stroke="#00bcd4" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                              </svg>
+                            </button>
+                            <div id="propFontList" class="hidden" style="position:absolute; top:30px; left:0; right:0; max-height:200px; overflow-y:auto; background:#222; border:1px solid #444; border-radius:6px; z-index:1000; box-shadow:0 4px 12px rgba(0,0,0,0.5); padding:4px 0;"></div>
+                        </div>
                     </div>
 
                     <div style="display:flex; gap:8px;">

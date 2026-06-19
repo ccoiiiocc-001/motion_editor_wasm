@@ -1197,4 +1197,53 @@ button {
     background-color: #00bcd4 !important;
     color: #000 !important;
     border-color: #00bcd4 !important;
+}
+
+/* 폰트 선택 리스트 관련 스타일 */
+.font-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    border-bottom: 1px solid #333;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.font-item:hover {
+    background: #333;
+}
+.font-item.selected {
+    background: #115e59;
+    border-left: 3px solid #00bcd4;
+}
+.font-info {
+    flex: 1;
+    overflow: hidden;
+}
+.font-name {
+    font-size: 9px;
+    color: #888;
+    margin-bottom: 2px;
+}
+.font-preview {
+    font-size: 13px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.star-fav {
+    font-size: 15px;
+    color: #555;
+    cursor: pointer;
+    padding: 0 4px;
+    border: none;
+    background: none;
+    outline: none;
+}
+.star-fav:hover {
+    color: #888;
+}
+.star-fav.active {
+    color: #f59e0b;
 }
