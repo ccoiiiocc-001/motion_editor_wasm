@@ -238,8 +238,23 @@ function updateCanvasSize() {
     if (canvasSizeRaf) return;
     canvasSizeRaf = requestAnimationFrame(() => {
         canvasSizeRaf = 0;
-        if (!resolutionSelect?.value || !window.canvas) return;
-        const [logicalW, logicalH] = resolutionSelect.value.split('x').map(Number);
+        if (!window.canvas) return;
+
+        const detailModeCheckbox = document.getElementById('detail-page-mode');
+        const isDetailMode = detailModeCheckbox ? detailModeCheckbox.checked : false;
+
+        let logicalW, logicalH;
+
+        if (isDetailMode) {
+            const wInput = document.getElementById('detail-width');
+            const hInput = document.getElementById('detail-height');
+            logicalW = wInput ? parseInt(wInput.value) || 900 : 900;
+            logicalH = hInput ? parseInt(hInput.value) || 2000 : 2000;
+        } else {
+            if (!resolutionSelect?.value) return;
+            [logicalW, logicalH] = resolutionSelect.value.split('x').map(Number);
+        }
+
         if (!logicalW || !logicalH) return;
 
         window.canvas.setZoom(1);
@@ -247,8 +262,16 @@ function updateCanvasSize() {
 
         const vp = getCanvasViewportSize();
         const margin = 20;
-        const fitScale = Math.min((vp.w - margin) / logicalW, (vp.h - margin) / logicalH);
-        const scale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.05;
+
+        let scale;
+        if (isDetailMode) {
+            // 상세페이지 모드에서는 가로폭에 맞춰 스케일링 (세로는 부모 컨테이너가 스크롤)
+            const fitScale = (vp.w - margin) / logicalW;
+            scale = Number.isFinite(fitScale) && fitScale > 0 ? Math.min(1.0, fitScale) : 1.0;
+        } else {
+            const fitScale = Math.min((vp.w - margin) / logicalW, (vp.h - margin) / logicalH);
+            scale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.05;
+        }
 
         window.canvas.setDimensions({
             width: `${logicalW * scale}px`,
@@ -2026,3 +2049,325 @@ window.fitObjectToCanvas = function(type) {
     if (typeof window.saveHistorySnapshot === 'function') window.saveHistorySnapshot();
     if (typeof window.updatePropertyPanel === 'function') window.updatePropertyPanel(obj);
 };
+
+// ── 상세페이지 자막(텍스트) 속성 패널 바인딩 및 업데이트 함수 ──
+window.updateTextPropertyPanel = function (obj) {
+    if (!obj || obj.type !== 'i-text') {
+        document.getElementById('text-properties-panel').style.display = 'none';
+        return;
+    }
+    
+    // 다른 조절 패널 숨기기
+    const subtitlePresetPanel = document.getElementById('subtitle-preset-panel');
+    if (subtitlePresetPanel) subtitlePresetPanel.style.display = 'none';
+    const filterPanel = document.getElementById('filter-settings-panel');
+    if (filterPanel) filterPanel.style.display = 'none';
+    const emptyMsg = document.getElementById('filter-empty-msg');
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    // 텍스트 속성 제어 패널 켜기
+    const textPanel = document.getElementById('text-properties-panel');
+    if (textPanel) textPanel.style.display = 'block';
+
+    const txtContent = document.getElementById('propTextContent');
+    const fontFamily = document.getElementById('propFontFamily');
+    const fontSize = document.getElementById('propFontSize');
+    const fill = document.getElementById('propFill');
+    const strokeWidth = document.getElementById('propStrokeWidth');
+    const stroke = document.getElementById('propStroke');
+    const shadowOffset = document.getElementById('propShadowOffset');
+    const shadowBlur = document.getElementById('propShadowBlur');
+    const shadowColor = document.getElementById('propShadowColor');
+    const charSpacing = document.getElementById('propCharSpacing');
+    const lineHeight = document.getElementById('propLineHeight');
+
+    if (txtContent) txtContent.value = obj.text || '';
+    if (fontFamily) {
+        const val = obj.fontFamily || 'Pretendard, Arial, sans-serif';
+        // 정확하게 일치하는 옵션 선택
+        let matched = false;
+        for (const opt of fontFamily.options) {
+            if (opt.value === val) {
+                fontFamily.value = val;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) fontFamily.value = "Pretendard, Arial, sans-serif";
+    }
+    if (fontSize) fontSize.value = obj.fontSize || 80;
+    if (fill) fill.value = obj.fill || '#ffffff';
+    if (strokeWidth) strokeWidth.value = obj.strokeWidth || 0;
+    if (stroke) stroke.value = obj.stroke || '#000000';
+
+    if (obj.shadow) {
+        if (shadowOffset) shadowOffset.value = obj.shadow.offsetX || 0;
+        if (shadowBlur) shadowBlur.value = obj.shadow.blur || 0;
+        if (shadowColor) shadowColor.value = obj.shadow.color || '#000000';
+    } else {
+        if (shadowOffset) shadowOffset.value = 0;
+        if (shadowBlur) shadowBlur.value = 0;
+        if (shadowColor) shadowColor.value = '#000000';
+    }
+
+    if (charSpacing) charSpacing.value = obj.charSpacing || 0;
+    if (lineHeight) lineHeight.value = obj.lineHeight || 1.1;
+
+    // 정렬 버튼 클래스 처리
+    const alignLeft = document.getElementById('alignLeftBtn');
+    const alignCenter = document.getElementById('alignCenterBtn');
+    const alignRight = document.getElementById('alignRightBtn');
+
+    [alignLeft, alignCenter, alignRight].forEach(btn => btn?.classList.remove('active'));
+    if (obj.textAlign === 'left' && alignLeft) alignLeft.classList.add('active');
+    if (obj.textAlign === 'center' && alignCenter) alignCenter.classList.add('active');
+    if (obj.textAlign === 'right' && alignRight) alignRight.classList.add('active');
+};
+
+// ── 스타일 부분 적용 (Rich Text) 또는 전체 적용을 결정하는 유틸 함수 ──
+window.applySubtitleProperty = function (key, value) {
+    const canvas = window.canvas;
+    if (!canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject || activeObject.type !== 'i-text') return;
+
+    if (activeObject.isEditing) {
+        // 드래그한 선택 영역에만 개별 스타일 적용
+        const styles = {};
+        styles[key] = value;
+        activeObject.setSelectionStyles(styles);
+    } else {
+        // 객체 전체 속성 변경
+        activeObject.set(key, value);
+    }
+    
+    canvas.requestRenderAll();
+    
+    if (typeof window.saveEffectHistorySnapshot === 'function') {
+        window.saveEffectHistorySnapshot({ delay: 500 });
+    }
+};
+
+// ── 상세페이지 캔버스 및 자막 편집 폼 이벤트 초기화 ──
+(function initDetailPageAndTextProperties() {
+    // Fabric.js 초기화 완료 후 실행을 위한 타이머 대기
+    setTimeout(() => {
+        const canvas = window.canvas;
+        if (!canvas) return;
+
+        const detailModeCheckbox = document.getElementById('detail-page-mode');
+        const detailDimsWrap = document.getElementById('detail-dims-wrap');
+        const resolutionSelect = document.getElementById('resolution');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const detailWidthInput = document.getElementById('detail-width');
+        const detailHeightInput = document.getElementById('detail-height');
+        const detailHeightAddBtn = document.getElementById('detail-height-add');
+
+        if (detailModeCheckbox) {
+            detailModeCheckbox.addEventListener('change', function() {
+                const isDetail = this.checked;
+                if (isDetail) {
+                    if (resolutionSelect) resolutionSelect.style.display = 'none';
+                    if (detailDimsWrap) detailDimsWrap.style.display = 'flex';
+                    if (canvasWrapper) canvasWrapper.classList.add('detail-mode-scroll');
+                } else {
+                    if (resolutionSelect) resolutionSelect.style.display = 'inline-block';
+                    if (detailDimsWrap) detailDimsWrap.style.display = 'none';
+                    if (canvasWrapper) canvasWrapper.classList.remove('detail-mode-scroll');
+                }
+                window.updateEffectEditorCanvasSize();
+            });
+        }
+
+        if (detailWidthInput) {
+            detailWidthInput.addEventListener('input', () => window.updateEffectEditorCanvasSize());
+        }
+        if (detailHeightInput) {
+            detailHeightInput.addEventListener('input', () => window.updateEffectEditorCanvasSize());
+        }
+        if (detailHeightAddBtn && detailHeightInput) {
+            detailHeightAddBtn.addEventListener('click', () => {
+                const curH = parseInt(detailHeightInput.value) || 2000;
+                detailHeightInput.value = curH + 500;
+                window.updateEffectEditorCanvasSize();
+            });
+        }
+
+        // 오브젝트 드래그(이동) 시 캔버스 아래 영역을 넘어가면 세로 길이 자동 확장
+        canvas.on('object:moving', function(e) {
+            const isDetail = detailModeCheckbox ? detailModeCheckbox.checked : false;
+            if (!isDetail || !detailHeightInput) return;
+
+            const obj = e.target;
+            if (!obj) return;
+
+            // 오브젝트의 바운더리 박스 바닥 계산
+            const bound = obj.getBoundingRect();
+            const objBottom = bound.top + bound.height;
+            const currentCanvasHeight = canvas.height;
+
+            if (objBottom > currentCanvasHeight) {
+                const newHeight = Math.ceil(objBottom + 120); // 추가 여백 부여
+                detailHeightInput.value = newHeight;
+                
+                // 실제 해상도와 줌 크기 재계산
+                canvas.setDimensions({ width: canvas.width, height: newHeight });
+                
+                const logicalW = detailWidthInput ? parseInt(detailWidthInput.value) || 900 : 900;
+                const vp = window.getCanvasViewportSize ? window.getCanvasViewportSize() : { w: window.innerWidth - 500, h: window.innerHeight - 100 };
+                const margin = 20;
+                const fitScale = (vp.w - margin) / logicalW;
+                const scale = Number.isFinite(fitScale) && fitScale > 0 ? Math.min(1.0, fitScale) : 1.0;
+                
+                canvas.setDimensions({
+                    width: `${logicalW * scale}px`,
+                    height: `${newHeight * scale}px`
+                }, { cssOnly: true });
+                
+                canvas.calcOffset();
+                canvas.requestRenderAll();
+            }
+        });
+
+        // 캔버스 객체 선택 시 패널 스위칭 및 값 동기화
+        canvas.on('selection:created', (e) => {
+            const obj = e.selected?.[0] || e.target;
+            if (obj && obj.type === 'i-text') {
+                window.updateTextPropertyPanel(obj);
+            } else {
+                const textPanel = document.getElementById('text-properties-panel');
+                if (textPanel) textPanel.style.display = 'none';
+            }
+        });
+        canvas.on('selection:updated', (e) => {
+            const obj = e.selected?.[0] || e.target;
+            if (obj && obj.type === 'i-text') {
+                window.updateTextPropertyPanel(obj);
+            } else {
+                const textPanel = document.getElementById('text-properties-panel');
+                if (textPanel) textPanel.style.display = 'none';
+            }
+        });
+        canvas.on('selection:cleared', () => {
+            const textPanel = document.getElementById('text-properties-panel');
+            if (textPanel) textPanel.style.display = 'none';
+            const emptyMsg = document.getElementById('filter-empty-msg');
+            if (emptyMsg) emptyMsg.style.display = 'block';
+        });
+
+        // 더블클릭해서 자막 글자를 직접 수정할 시 동기화
+        canvas.on('text:changed', (e) => {
+            if (e.target && e.target.type === 'i-text') {
+                const txtContent = document.getElementById('propTextContent');
+                if (txtContent) txtContent.value = e.target.text || '';
+            }
+        });
+
+        // 텍스트 속성 제어 패널 이벤트 바인딩
+        const txtContent = document.getElementById('propTextContent');
+        const fontFamily = document.getElementById('propFontFamily');
+        const fontSize = document.getElementById('propFontSize');
+        const fill = document.getElementById('propFill');
+        const strokeWidth = document.getElementById('propStrokeWidth');
+        const stroke = document.getElementById('propStroke');
+        const shadowOffset = document.getElementById('propShadowOffset');
+        const shadowBlur = document.getElementById('propShadowBlur');
+        const shadowColor = document.getElementById('propShadowColor');
+        const charSpacing = document.getElementById('propCharSpacing');
+        const lineHeight = document.getElementById('propLineHeight');
+
+        if (txtContent) {
+            txtContent.addEventListener('input', function() {
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    activeObject.set('text', this.value);
+                    canvas.requestRenderAll();
+                }
+            });
+        }
+        if (fontFamily) {
+            fontFamily.addEventListener('change', function() {
+                window.applySubtitleProperty('fontFamily', this.value);
+            });
+        }
+        if (fontSize) {
+            fontSize.addEventListener('input', function() {
+                window.applySubtitleProperty('fontSize', parseInt(this.value) || 20);
+            });
+        }
+        if (fill) {
+            fill.addEventListener('input', function() {
+                window.applySubtitleProperty('fill', this.value);
+            });
+        }
+        if (strokeWidth) {
+            strokeWidth.addEventListener('input', function() {
+                window.applySubtitleProperty('strokeWidth', parseInt(this.value) || 0);
+            });
+        }
+        if (stroke) {
+            stroke.addEventListener('input', function() {
+                window.applySubtitleProperty('stroke', this.value);
+            });
+        }
+
+        // 그림자 통합 조절기
+        function getShadowValue() {
+            const offset = parseInt(shadowOffset?.value) || 0;
+            const blur = parseInt(shadowBlur?.value) || 0;
+            const color = shadowColor?.value || '#000000';
+            if (offset === 0 && blur === 0) return null;
+            return new fabric.Shadow({
+                color: color,
+                blur: blur,
+                offsetX: offset,
+                offsetY: offset
+            });
+        }
+        const triggerShadowUpdate = () => {
+            window.applySubtitleProperty('shadow', getShadowValue());
+        };
+
+        if (shadowOffset) shadowOffset.addEventListener('input', triggerShadowUpdate);
+        if (shadowBlur) shadowBlur.addEventListener('input', triggerShadowUpdate);
+        if (shadowColor) shadowColor.addEventListener('input', triggerShadowUpdate);
+
+        if (charSpacing) {
+            charSpacing.addEventListener('input', function() {
+                window.applySubtitleProperty('charSpacing', parseInt(this.value) || 0);
+            });
+        }
+        if (lineHeight) {
+            lineHeight.addEventListener('input', function() {
+                window.applySubtitleProperty('lineHeight', parseFloat(this.value) || 1.0);
+            });
+        }
+
+        // 정렬 단추 리스너
+        const alignLeft = document.getElementById('alignLeftBtn');
+        const alignCenter = document.getElementById('alignCenterBtn');
+        const alignRight = document.getElementById('alignRightBtn');
+
+        if (alignLeft) {
+            alignLeft.addEventListener('click', function() {
+                window.applySubtitleProperty('textAlign', 'left');
+                [alignLeft, alignCenter, alignRight].forEach(b => b?.classList.remove('active'));
+                alignLeft.classList.add('active');
+            });
+        }
+        if (alignCenter) {
+            alignCenter.addEventListener('click', function() {
+                window.applySubtitleProperty('textAlign', 'center');
+                [alignLeft, alignCenter, alignRight].forEach(b => b?.classList.remove('active'));
+                alignCenter.classList.add('active');
+            });
+        }
+        if (alignRight) {
+            alignRight.addEventListener('click', function() {
+                window.applySubtitleProperty('textAlign', 'right');
+                [alignLeft, alignCenter, alignRight].forEach(b => b?.classList.remove('active'));
+                alignRight.classList.add('active');
+            });
+        }
+    }, 500);
+})();
