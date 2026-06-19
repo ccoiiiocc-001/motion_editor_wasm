@@ -115,9 +115,29 @@ function syncParticleUI() {
     if (pSz) pSz.value = s.sz; 
     if (pSpd) pSpd.value = s.spd; 
     if (pWnd) pWnd.value = s.wnd;
+    if (pOpac) pOpac.value = s.opac !== undefined ? s.opac : 80;
+    if (pBlur) pBlur.value = s.blur !== undefined ? s.blur : 0;
+    if (pUseCol) pUseCol.checked = s.useCol !== undefined ? s.useCol : false;
+    if (pColVal) pColVal.value = s.colVal || '#ffffff';
     if (typeof syncParticleCheckboxes === 'function') {
         syncParticleCheckboxes();
     }
+}
+function saveParticleStateToStorage() {
+    const storageState = {};
+    Object.keys(pState).forEach(k => {
+        storageState[k] = {
+            amt: pState[k].amt,
+            sz: pState[k].sz,
+            spd: pState[k].spd,
+            wnd: pState[k].wnd,
+            opac: pState[k].opac,
+            blur: pState[k].blur,
+            useCol: pState[k].useCol,
+            colVal: pState[k].colVal
+        };
+    });
+    localStorage.setItem('motion_editor_particle_state_v3', JSON.stringify(storageState));
 }
 function saveParticleUI() {
     const val = currentParticleVal;
@@ -125,6 +145,11 @@ function saveParticleUI() {
     if (pSz) pState[val].sz = parseInt(pSz.value) || 15;
     if (pSpd) pState[val].spd = parseInt(pSpd.value) || 30;
     if (pWnd) pState[val].wnd = parseInt(pWnd.value) || 20;
+    if (pOpac) pState[val].opac = pOpac.value !== "" ? parseInt(pOpac.value) : 80;
+    if (pBlur) pState[val].blur = pBlur.value !== "" ? parseInt(pBlur.value) : 0;
+    if (pUseCol) pState[val].useCol = pUseCol.checked;
+    if (pColVal) pState[val].colVal = pColVal.value || '#ffffff';
+    saveParticleStateToStorage();
 }
 window.currentIsIntermittent = false;
 
@@ -183,6 +208,7 @@ const handleCheckboxChange = (e) => {
     Object.values(pState).forEach(st => { if (st.up || st.down) anyOn = true; });
     fsFadingOut = !anyOn;
     syncParticleUI();
+    saveParticleStateToStorage();
 };
 [pCtrlUp, pCtrlDown, pCtrlGrow, pCtrlOff].forEach(chk => { if (chk) chk.onchange = handleCheckboxChange; });
 
@@ -193,13 +219,14 @@ syncParticleCheckboxes();
 
 
 
-[pAmt, pSz, pSpd, pWnd].forEach(el => { if (el) el.oninput = saveParticleUI; });
-window.resetAllEffects = function () { if (colorFilterToggle) colorFilterToggle.checked = false; if (mouseEffectSelect) mouseEffectSelect.selectedIndex = -1; document.querySelectorAll('.eff-btn').forEach(b => { b.classList.remove('eff-active'); b.style.background = '#f8fafc'; b.style.outline = 'none'; }); const lbl = document.getElementById('effSelectedLabel'); if (lbl) lbl.textContent = '선택 없음'; fsParticles = []; fsFadingOut = false; currentDrawType = 'none'; penTypeBtns.forEach(b => b.classList.remove('active')); stampBtns.forEach(b => b.classList.remove('active')); Object.keys(pState).forEach(k => { pState[k].up = false; pState[k].down = false; pState[k].grow = false; }); syncParticleUI(); };
+[pAmt, pSz, pSpd, pWnd, pOpac, pBlur, pColVal].forEach(el => { if (el) el.oninput = saveParticleUI; });
+[pUseCol].forEach(el => { if (el) el.onchange = saveParticleUI; });
+window.resetAllEffects = function () { if (colorFilterToggle) colorFilterToggle.checked = false; if (mouseEffectSelect) mouseEffectSelect.selectedIndex = -1; document.querySelectorAll('.eff-btn').forEach(b => { b.classList.remove('eff-active'); b.style.background = '#f8fafc'; b.style.outline = 'none'; }); const lbl = document.getElementById('effSelectedLabel'); if (lbl) lbl.textContent = '선택 없음'; fsParticles = []; fsFadingOut = false; currentDrawType = 'none'; penTypeBtns.forEach(b => b.classList.remove('active')); stampBtns.forEach(b => b.classList.remove('active')); Object.keys(pState).forEach(k => { pState[k].up = false; pState[k].down = false; pState[k].grow = false; }); syncParticleUI(); saveParticleStateToStorage(); };
 function createP(type, dir, state) {
     const size = state.sz * (0.5 + Math.random());
-    const speed = state.spd / 5 + Math.random() * 2;
+    const speed = (state.spd / 30) * (5 + Math.random() * 2);
     const wind = state.wnd;
-    const minAmp = size * 10;
+    const minAmp = size * 0.5;
     const maxAmp = (popupRawCanvas ? popupRawCanvas.width : 800) / 2;
     const amp = minAmp + (wind / 100) * (maxAmp - minAmp);
     
@@ -219,15 +246,17 @@ function createP(type, dir, state) {
         oscSpeed: 0.02 + Math.random() * 0.03,
         windAmp: (Math.random() > 0.5 ? 1 : -1) * amp,
         hue: Math.random() * 360,
-        baseAlpha: 0.8 + Math.random() * 0.2,
+        color: (state.useCol && state.colVal) ? state.colVal : null,
+        baseAlpha: ((state.opac !== undefined ? state.opac : 80) / 100) * (0.8 + Math.random() * 0.2),
+        blur: state.blur !== undefined ? state.blur : 0,
         grow: state.grow
     };
     p.baseX = p.x;
 
     if (type === 'rain') {
         p.spin = 0;
-        p.vy = state.spd / 5 + 10 + Math.random() * 4;
-        p.vx = ((wind - 20) / 100) * 6; // wind offset relative to default 20
+        p.vy = (state.spd / 30) * (15 + Math.random() * 4);
+        p.vx = (state.spd / 30) * ((wind - 20) / 100) * 6; // wind offset relative to default 20
         p.angle = Math.atan2(p.vx, p.vy);
         p.x = Math.random() * ((popupRawCanvas ? popupRawCanvas.width : 800) + 200) - 100;
         p.baseX = p.x;
@@ -298,8 +327,24 @@ function renderPopupLoop() {
     if (!fsFadingOut) {
         Object.keys(pState).forEach(type => {
             const state = pState[type];
-            if (state.down && state.amt > 0) { if (Math.random() < state.amt / 20) fsParticles.push(createP(type, 'down', state)); }
-            if (state.up && state.amt > 0) { if (Math.random() < state.amt / 20) fsParticles.push(createP(type, 'up', state)); }
+            const fpsBaseline = 30.3; // 1000 / 33 ms per frame
+            
+            if (state.down && state.amt > 0) {
+                let expected = state.amt / fpsBaseline;
+                let countToSpawn = Math.floor(expected);
+                if (Math.random() < (expected % 1)) countToSpawn++;
+                for (let i = 0; i < countToSpawn; i++) {
+                    fsParticles.push(createP(type, 'down', state));
+                }
+            }
+            if (state.up && state.amt > 0) {
+                let expected = state.amt / fpsBaseline;
+                let countToSpawn = Math.floor(expected);
+                if (Math.random() < (expected % 1)) countToSpawn++;
+                for (let i = 0; i < countToSpawn; i++) {
+                    fsParticles.push(createP(type, 'up', state));
+                }
+            }
         });
     }
     for (let i = fsParticles.length - 1; i >= 0; i--) {
@@ -360,10 +405,14 @@ function drawFSParticle(ctx, p) {
         if (c.startsWith('rgb')) return c.replace('rgb(', 'rgba(').replace(')', `,${op})`);
         return c;
     };
-    ctx.save(); ctx.globalAlpha = fsFadeAlpha * (p.baseAlpha || 1); ctx.translate(p.x, p.y); ctx.rotate(p.angle);
+    ctx.save();
+    if (p.blur && p.blur > 0) {
+        ctx.filter = `blur(${p.blur}px)`;
+    }
+    ctx.globalAlpha = fsFadeAlpha * (p.baseAlpha || 1); ctx.translate(p.x, p.y); ctx.rotate(p.angle);
     let col = p.color || ((p.type === 'snow' || p.type === 'rain') ? (p.type === 'snow' ? 'white' : 'rgba(200,200,255,0.7)') : `hsl(${p.hue},100%,60%)`);
     if (p.type === 'snow') { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2); ctx.fill(); }
-    else if (p.type === 'rain') { ctx.strokeStyle = col; ctx.lineWidth = p.size / 5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -p.size * 2); ctx.stroke(); }
+    else if (p.type === 'rain') { ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, 0, p.size / 4, p.size * 1.2, 0, 0, Math.PI * 2); ctx.fill(); }
     else if (p.type === 'bubble') { ctx.strokeStyle = col; ctx.lineWidth = p.size * 0.1; ctx.beginPath(); ctx.arc(0, 0, p.size, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = p.color ? getTranslucentColor(p.color, 0.2) : `hsla(${p.hue},100%,60%,0.2)`; ctx.fill(); }
     else if (p.type === 'heart') { ctx.fillStyle = col; ctx.font = `${p.size * 2}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('♥', 0, 0); }
     else if (p.type === 'star') { ctx.fillStyle = col; ctx.font = `${p.size * 2}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('★', 0, 0); }
@@ -758,95 +807,17 @@ function drawWaveform(ctx, data, shape, colorMode, w, h) {
         }
 
         if (isAudio) {
-            let leftCount = Math.floor(count * 0.25);
-            let rightStart = Math.floor(count * 0.75);
+            // Draw audio bars across full width using symData
+            let center = (count - 1) / 2;
+            let sigma = (count - 1) / 5.5;
+            let gZero = Math.exp(-0.5 * Math.pow((0 - center) / sigma, 2));
 
-            // Calculate average volume for wave modulation
-            let sum = 0;
-            for (let j = 0; j < data.length; j++) sum += data[j];
-            let avgVolume = data.length > 0 ? (sum / data.length) : 0;
-            let t = Date.now() / 150; // speed of the wave roll
-            let baseAmp = 3.0; // minimum wave amplitude (6px peak-to-peak)
-            let volAmp = (avgVolume / 255) * 8; // volume-modulated wave amplitude
-            let amp = baseAmp + volAmp;
-
-            // Draw left 25% wavy line
-            ctx.beginPath();
-            ctx.lineWidth = drawWidth;
-            if (colorMode === 'rainbow') {
-                let grad = ctx.createLinearGradient(startX, 0, startX + realW, 0);
-                grad.addColorStop(0, 'red'); grad.addColorStop(0.5, 'lime'); grad.addColorStop(1, 'blue');
-                ctx.strokeStyle = grad;
-            } else if (colorMode === 'tier3') {
-                ctx.strokeStyle = '#605eff'; // Low color (Indigo/blue)
-            } else {
-                ctx.strokeStyle = baseColor;
-            }
-
-            for (let i = 0; i <= leftCount; i++) {
-                let x = startX + i * barW;
-                let waveY = yOffset + Math.sin(t + i * 0.45) * amp;
-                if (i === 0) ctx.moveTo(x, waveY);
-                else ctx.lineTo(x, waveY);
-            }
-            ctx.stroke();
-
-            // Draw right 25% wavy line
-            ctx.beginPath();
-            ctx.lineWidth = drawWidth;
-            if (colorMode === 'rainbow') {
-                let grad = ctx.createLinearGradient(startX, 0, startX + realW, 0);
-                grad.addColorStop(0, 'red'); grad.addColorStop(0.5, 'lime'); grad.addColorStop(1, 'blue');
-                ctx.strokeStyle = grad;
-            } else if (colorMode === 'tier3') {
-                ctx.strokeStyle = '#ff7ed9'; // High color (Pink)
-            } else {
-                ctx.strokeStyle = baseColor;
-            }
-
-            for (let i = rightStart; i < count; i++) {
-                let x = startX + i * barW;
-                let waveY = yOffset + Math.sin(t + i * 0.45) * amp;
-                if (i === rightStart) ctx.moveTo(x, waveY);
-                else ctx.lineTo(x, waveY);
-            }
-            ctx.stroke();
-
-            // Draw a straight baseline under the center 50% bars to bridge the gap smoothly
-            ctx.beginPath();
-            ctx.lineWidth = drawWidth;
-            if (colorMode === 'rainbow') {
-                let grad = ctx.createLinearGradient(startX + leftCount * barW, 0, startX + rightStart * barW, 0);
-                grad.addColorStop(0, 'red'); grad.addColorStop(0.5, 'lime'); grad.addColorStop(1, 'blue');
-                ctx.strokeStyle = grad;
-            } else if (colorMode === 'tier3') {
-                let grad = ctx.createLinearGradient(startX + leftCount * barW, 0, startX + rightStart * barW, 0);
-                grad.addColorStop(0, '#605eff'); // Low
-                grad.addColorStop(0.5, '#03ff6d'); // Mid
-                grad.addColorStop(1, '#ff7ed9'); // High
-                ctx.strokeStyle = grad;
-            } else {
-                ctx.strokeStyle = baseColor;
-            }
-            ctx.moveTo(startX + leftCount * barW, yOffset);
-            ctx.lineTo(startX + rightStart * barW, yOffset);
-            ctx.stroke();
-
-            // Draw center 50% as audio bars
-            let centerWidthCount = rightStart - leftCount;
-            let maxActiveBin = Math.floor(data.length * 0.25); // focusing up to ~5.5 kHz (high energy region)
-            for (let i = leftCount; i < rightStart; i++) {
-                // Logarithmic frequency mapping focusing on the active spectrum
-                let ratio = (i - leftCount) / centerWidthCount;
-                let dataIdx = maxActiveBin > 0 ? Math.floor(Math.pow(ratio, 1.5) * maxActiveBin) : 0;
-                dataIdx = Math.min(data.length - 1, Math.max(0, dataIdx)); // safeguard bounds
-
-                let val = data.length > 0 ? (data[dataIdx] / 255) : 0;
-                // Pre-emphasis boost for higher frequencies to ensure active bouncing across the entire width
-                let boost = 1.0 + ratio * 1.5;
-                let barH = Math.min(maxH, val * maxH * boost);
+            for (let i = 0; i < count; i++) {
+                let val = symData[i] / 255;
+                // Gaussian normal distribution curve (starts and ends exactly at 0)
+                let bellFactor = (Math.exp(-0.5 * Math.pow((i - center) / sigma, 2)) - gZero) / (1 - gZero);
+                let barH = val * maxH * bellFactor;
                 
-                // Center the bar within its slot (barW) using actualBarW
                 let x = xOffset + i * barW + (barW - actualBarW) / 2;
                 let y = yOffset - barH;
 
@@ -864,13 +835,19 @@ function drawWaveform(ctx, data, shape, colorMode, w, h) {
             }
         } else {
             // Draw simple oscillating noise bars across full width
+            let center = (count - 1) / 2;
+            let sigma = (count - 1) / 5.5;
+            let gZero = Math.exp(-0.5 * Math.pow((0 - center) / sigma, 2));
+
             for (let i = 0; i < count; i++) {
                 // Map count to the data length
                 let dataIdx = data.length > 0 ? Math.floor(i * (data.length / count)) : 0;
                 dataIdx = Math.min(data.length - 1, Math.max(0, dataIdx));
 
                 let val = data.length > 0 ? (data[dataIdx] / 255) : 0;
-                let barH = val * maxH;
+                // Gaussian normal distribution curve (starts and ends exactly at 0)
+                let bellFactor = (Math.exp(-0.5 * Math.pow((i - center) / sigma, 2)) - gZero) / (1 - gZero);
+                let barH = val * maxH * bellFactor;
                 // Center the bar within its slot
                 let x = xOffset + i * barW + (barW - actualBarW) / 2;
                 let y = yOffset - barH;
@@ -3195,6 +3172,10 @@ window.applyDrawPreset = function(presetNameOrConfig) {
             pState[window.currentParticleVal].sz = p.particles.sz;
             pState[window.currentParticleVal].spd = p.particles.spd;
             pState[window.currentParticleVal].wnd = p.particles.wnd;
+            pState[window.currentParticleVal].opac = p.particles.opac !== undefined ? p.particles.opac : 80;
+            pState[window.currentParticleVal].blur = p.particles.blur !== undefined ? p.particles.blur : 0;
+            pState[window.currentParticleVal].useCol = p.particles.useCol !== undefined ? p.particles.useCol : false;
+            pState[window.currentParticleVal].colVal = p.particles.colVal !== undefined ? p.particles.colVal : '#ffffff';
             pState[window.currentParticleVal].up = p.particles.up;
             pState[window.currentParticleVal].down = p.particles.down;
             pState[window.currentParticleVal].grow = p.particles.grow;
@@ -3204,10 +3185,18 @@ window.applyDrawPreset = function(presetNameOrConfig) {
         const pSz = document.getElementById('pSz');
         const pSpd = document.getElementById('pSpd');
         const pWnd = document.getElementById('pWnd');
+        const pOpac = document.getElementById('pOpac');
+        const pBlur = document.getElementById('pBlur');
+        const pUseCol = document.getElementById('pUseCol');
+        const pColVal = document.getElementById('pColVal');
         if (pAmt) pAmt.value = p.particles.amt;
         if (pSz) pSz.value = p.particles.sz;
         if (pSpd) pSpd.value = p.particles.spd;
         if (pWnd) pWnd.value = p.particles.wnd;
+        if (pOpac) pOpac.value = p.particles.opac !== undefined ? p.particles.opac : 80;
+        if (pBlur) pBlur.value = p.particles.blur !== undefined ? p.particles.blur : 0;
+        if (pUseCol) pUseCol.checked = p.particles.useCol !== undefined ? p.particles.useCol : false;
+        if (pColVal) pColVal.value = p.particles.colVal !== undefined ? p.particles.colVal : '#ffffff';
         
         const pCtrlUp = document.getElementById('pCtrlUp');
         const pCtrlDown = document.getElementById('pCtrlDown');
@@ -3339,6 +3328,10 @@ window.saveCurrentDrawPreset = function(presetName) {
             sz: parseInt(document.getElementById('pSz')?.value || 15),
             spd: parseInt(document.getElementById('pSpd')?.value || 30),
             wnd: parseInt(document.getElementById('pWnd')?.value || 20),
+            opac: parseInt(document.getElementById('pOpac')?.value || 80),
+            blur: parseInt(document.getElementById('pBlur')?.value || 0),
+            useCol: document.getElementById('pUseCol')?.checked || false,
+            colVal: document.getElementById('pColVal')?.value || '#ffffff',
             up: document.getElementById('pCtrlUp')?.checked || false,
             down: document.getElementById('pCtrlDown')?.checked || false,
             grow: document.getElementById('pCtrlGrow')?.checked || false
@@ -3440,5 +3433,94 @@ if (typeof imageAlphaEditBtn !== 'undefined' && imageAlphaEditBtn) {
         }
     });
 }
+
+// --- Waveform Caching & Restore ---
+function saveWaveSettings() {
+    const settings = {
+        mode: waveModeSelect ? waveModeSelect.value : 'none',
+        shape: waveShapeSelect ? waveShapeSelect.value : 'bar',
+        colorMode: waveColorSelect ? waveColorSelect.value : 'white',
+        speed: waveSpeed ? waveSpeed.value : '1.0',
+        count: waveCount ? waveCount.value : '128',
+        lineWidth: waveLineWidth ? waveLineWidth.value : '5',
+        width: waveWidth ? waveWidth.value : '100',
+        height: waveHeight ? waveHeight.value : '100',
+        size: waveSize ? waveSize.value : '100',
+        posX: wavePosX ? wavePosX.value : '50',
+        posY: wavePosY ? wavePosY.value : '50',
+        perfMode: wavePerformanceMode ? wavePerformanceMode.value : 'gpu'
+    };
+    localStorage.setItem('motion_editor_wave_settings', JSON.stringify(settings));
+}
+
+function loadWaveSettings() {
+    try {
+        const saved = localStorage.getItem('motion_editor_wave_settings');
+        if (saved) {
+            const settings = JSON.parse(saved);
+            if (waveModeSelect && settings.mode !== undefined) {
+                waveModeSelect.value = settings.mode;
+                waveModeSelect.dispatchEvent(new Event('change'));
+            }
+            if (waveShapeSelect && settings.shape !== undefined) {
+                waveShapeSelect.value = settings.shape;
+                waveShapeSelect.dispatchEvent(new Event('change'));
+            }
+            if (waveColorSelect && settings.colorMode !== undefined) {
+                waveColorSelect.value = settings.colorMode;
+                waveColorSelect.dispatchEvent(new Event('change'));
+            }
+            if (waveSpeed && settings.speed !== undefined) {
+                waveSpeed.value = settings.speed;
+                waveSpeed.dispatchEvent(new Event('input'));
+            }
+            if (waveCount && settings.count !== undefined) {
+                waveCount.value = settings.count;
+                waveCount.dispatchEvent(new Event('input'));
+            }
+            if (waveLineWidth && settings.lineWidth !== undefined) {
+                waveLineWidth.value = settings.lineWidth;
+                waveLineWidth.dispatchEvent(new Event('input'));
+            }
+            if (waveWidth && settings.width !== undefined) {
+                waveWidth.value = settings.width;
+                waveWidth.dispatchEvent(new Event('input'));
+            }
+            if (waveHeight && settings.height !== undefined) {
+                waveHeight.value = settings.height;
+                waveHeight.dispatchEvent(new Event('input'));
+            }
+            if (waveSize && settings.size !== undefined) {
+                waveSize.value = settings.size;
+                waveSize.dispatchEvent(new Event('input'));
+            }
+            if (wavePosX && settings.posX !== undefined) {
+                wavePosX.value = settings.posX;
+                wavePosX.dispatchEvent(new Event('input'));
+            }
+            if (wavePosY && settings.posY !== undefined) {
+                wavePosY.value = settings.posY;
+                wavePosY.dispatchEvent(new Event('input'));
+            }
+            if (wavePerformanceMode && settings.perfMode !== undefined) {
+                wavePerformanceMode.value = settings.perfMode;
+                wavePerformanceMode.dispatchEvent(new Event('change'));
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load wave settings', e);
+    }
+}
+
+// Bind input and change events for all wave settings
+[waveModeSelect, waveShapeSelect, waveColorSelect, waveSpeed, waveCount, waveLineWidth, waveWidth, waveHeight, waveSize, wavePosX, wavePosY, wavePerformanceMode].forEach(el => {
+    if (el) {
+        el.addEventListener('input', saveWaveSettings);
+        el.addEventListener('change', saveWaveSettings);
+    }
+});
+
+// Load settings on startup
+setTimeout(loadWaveSettings, 100);
 
 

@@ -41,6 +41,10 @@ const pAmt = document.getElementById('pAmt');
 const pSz = document.getElementById('pSz');
 const pSpd = document.getElementById('pSpd');
 const pWnd = document.getElementById('pWnd');
+const pOpac = document.getElementById('pOpac');
+const pBlur = document.getElementById('pBlur');
+const pUseCol = document.getElementById('pUseCol');
+const pColVal = document.getElementById('pColVal');
 const popupRawCanvas = document.getElementById('drawPopupCanvas');
 const brushIndicator = document.getElementById('brushIndicator');
 const customStampInput = document.getElementById('customStampInput');
@@ -195,20 +199,53 @@ window.previewLoop = false;
 window.lastRandHue = 0;
 window.lastRandAlpha = 1;
 window.lastRandTime = 0;
-const pState = {
-    snow: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    rain: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    petal: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    bubble: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    heart: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    star: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    music: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    confetti: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    flower: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    spark: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    fog: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 },
-    steam: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20 }
+const defaultParticleState = {
+    snow: { up: false, down: true, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    rain: { up: false, down: true, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    petal: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    bubble: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    heart: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    star: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    music: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    confetti: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    flower: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    spark: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    fog: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' },
+    steam: { up: false, down: false, grow: false, amt: 5, sz: 15, spd: 30, wnd: 20, opac: 80, blur: 0, useCol: false, colVal: '#ffffff' }
 };
+
+// Clean up the old saved state key to prevent bugs due to incorrect stored values
+try {
+    localStorage.removeItem('motion_editor_particle_state');
+} catch (e) {}
+
+let loadedState = null;
+try {
+    const saved = localStorage.getItem('motion_editor_particle_state_v3');
+    if (saved) {
+        loadedState = JSON.parse(saved);
+    }
+} catch (e) {
+    console.error('Failed to load particle state', e);
+}
+
+const pState = {};
+Object.keys(defaultParticleState).forEach(k => {
+    // Only load options (amt, sz, spd, wnd, opac, blur, useCol, colVal)
+    // up, down, grow should NOT be restored as per user request, preserving default checkbox states
+    pState[k] = Object.assign({}, defaultParticleState[k]);
+    const savedOpt = loadedState ? loadedState[k] : null;
+    if (savedOpt) {
+        if (savedOpt.amt !== undefined) pState[k].amt = savedOpt.amt;
+        if (savedOpt.sz !== undefined) pState[k].sz = savedOpt.sz;
+        if (savedOpt.spd !== undefined) pState[k].spd = savedOpt.spd;
+        if (savedOpt.wnd !== undefined) pState[k].wnd = savedOpt.wnd;
+        if (savedOpt.opac !== undefined) pState[k].opac = savedOpt.opac;
+        if (savedOpt.blur !== undefined) pState[k].blur = savedOpt.blur;
+        if (savedOpt.useCol !== undefined) pState[k].useCol = savedOpt.useCol;
+        if (savedOpt.colVal !== undefined) pState[k].colVal = savedOpt.colVal;
+    }
+});
 let db;
 const request = indexedDB.open("MotionEditorDB", 1);
 request.onupgradeneeded = function(event) { db = event.target.result; if (!db.objectStoreNames.contains("clips")) { db.createObjectStore("clips", { keyPath: "name" }); } };

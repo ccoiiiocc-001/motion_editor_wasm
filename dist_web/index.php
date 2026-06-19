@@ -759,13 +759,32 @@ if (!$is_allowed) {
               </div>
               <div>
                 <label style="font-size:10px;">속도</label>
-                <input type="number" id="pSpd" min="1" max="150" value="30"
+                <input type="number" id="pSpd" min="0" max="150" value="30"
                   style="width:100%;padding:2px;border:1px solid #cbd5e1;border-radius:4px;">
               </div>
               <div>
                 <label style="font-size:10px;">바람진폭</label>
                 <input type="number" id="pWnd" min="0" max="100" value="20"
                   style="width:100%;padding:2px;border:1px solid #cbd5e1;border-radius:4px;">
+              </div>
+              <div>
+                <label style="font-size:10px;">투명도 (%)</label>
+                <input type="number" id="pOpac" min="0" max="100" value="80"
+                  style="width:100%;padding:2px;border:1px solid #cbd5e1;border-radius:4px;">
+              </div>
+              <div>
+                <label style="font-size:10px;">블러 (px)</label>
+                <input type="number" id="pBlur" min="0" max="30" value="0"
+                  style="width:100%;padding:2px;border:1px solid #cbd5e1;border-radius:4px;">
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;height:100%;margin-top:12px;">
+                <input type="checkbox" id="pUseCol" style="width:auto;margin:0;cursor:pointer;">
+                <label for="pUseCol" style="font-size:10px;margin:0;cursor:pointer;font-weight:bold;">지정 색상 사용</label>
+              </div>
+              <div>
+                <label style="font-size:10px;">색상 선택</label>
+                <input type="color" id="pColVal" value="#ffffff"
+                  style="width:100%;height:24px;padding:0;border:1px solid #cbd5e1;border-radius:4px;cursor:pointer;">
               </div>
             </div>
           </div>
