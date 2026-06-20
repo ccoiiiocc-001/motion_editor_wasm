@@ -21,6 +21,15 @@
               <option value="4320x7680">4320x7680 (8K)</option>
             </select>
             
+            <label style="color:#fff; font-size:11px; display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin-left:5px; white-space:nowrap;">
+                <input type="checkbox" id="detail-page-mode"> 상세페이지
+            </label>
+            <div id="detail-dims-wrap" style="display:none; align-items:center; gap:4px; margin-left:0px;">
+                <input type="number" id="detail-width" value="900" min="200" max="3000" style="width:70px; padding:0; font-size:10px; background:#333; color:#fff; border:1px solid #555; border-radius:3px; outline:none; text-align:center;">x
+				<input type="number" id="detail-height" value="2000" min="200" max="30000" style="width:70px; padding:0; font-size:10px; background:#333; color:#fff; border:1px solid #555; border-radius:3px; outline:none; text-align:center;">
+                <button type="button" id="detail-height-add" style="padding:0; font-size:0.8em; background:#4caf50; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold; white-space:nowrap;">+500</button>
+            </div>
+            
             <select id="img-load-option" style="margin-bottom: 5px; width: 100%;">
                 <option value="fit">불러오기: 화면에 맞추기 (권장)</option>
                 <option value="original">불러오기: 원본 크기 (100%)</option>
@@ -167,6 +176,29 @@
                 </select>
                 <button type="button" id="effect-load-preset-btn" style="margin-top:8px;background:#2563eb;">프리셋 적용</button>
             </div>
+            
+            <div id="image-properties-panel" style="display: none; background:#2a2a2a; border:1px solid #444; border-radius:6px; padding:12px; margin-bottom:15px;">
+                <h4 style="margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 14px; color: #ff9800;">
+                    🖼️ 이미지 레이어 속성
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div class="prop-group">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label style="font-size:12px; color:#ccc; margin:0;">투명도</label>
+                            <input type="number" id="propImageOpacityNum" min="10" max="100" value="100" style="width:50px; padding:4px; font-size:11px; text-align:center; outline:none;">
+                        </div>
+                        <input type="range" id="propImageOpacity" min="10" max="100" value="100" style="width:100%; accent-color:#ff9800; cursor:pointer;">
+                    </div>
+                    <div class="prop-group">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label style="font-size:12px; color:#ccc; margin:0;">회전 각도</label>
+                            <input type="number" id="propImageAngleNum" min="0" max="360" value="0" style="width:50px; padding:4px; font-size:11px; text-align:center; outline:none;">
+                        </div>
+                        <input type="range" id="propImageAngle" min="0" max="360" value="0" style="width:100%; accent-color:#ff9800; cursor:pointer;">
+                    </div>
+                </div>
+            </div>
+
             <div id="filter-settings-panel" style="display: none;">
                 <h4 id="filter-title" style="margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 14px; color: #00bcd4;">
                     ⚙️ 세부 옵션 조절
@@ -174,6 +206,124 @@
                 <div id="filter-sliders"></div>
                 <div id="retro-effect-controls"></div>
                 <button type="button" id="effect-state-bake-btn" style="display:none;width:100%;padding:10px;margin-top:12px;background:#8b5cf6;color:#fff;font-weight:bold;border:none;border-radius:4px;cursor:pointer;" title="현재 효과 화면을 이미지로 고정 (다른 효과 적용 가능)">현재상태 적용</button>
+            </div>
+            
+            <div id="text-properties-panel" style="display: none;">
+                <h4 style="margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 14px; color: #00bcd4;">
+                    📝 자막 속성 및 스타일
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div class="prop-group">
+                        <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">자막 내용</label>
+                        <textarea id="propTextContent" rows="3" style="width:100%; box-sizing:border-box; background:#333; color:#fff; border:1px solid #555; padding:6px; border-radius:4px; font-size:12px; resize:vertical; outline:none;"></textarea>
+                    </div>
+
+                    <div class="prop-group">
+                        <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">글꼴</label>
+                        <div style="position:relative; width:100%;">
+                            <button type="button" id="propFontBtn"
+                              style="width:100%; padding:6px 10px; border:1px solid #00bcd4; border-radius:6px; background:#333; color:#00bcd4; text-align:left; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:12px; font-weight:bold; height:28px; box-sizing:border-box; outline:none;">
+                              <span id="propFontLabel" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Pretendard</span>
+                              <svg style="width:14px; height:14px; flex-shrink:0;" fill="none" stroke="#00bcd4" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                              </svg>
+                            </button>
+                            <div id="propFontList" class="hidden" style="position:absolute; top:30px; left:0; right:0; max-height:200px; overflow-y:auto; background:#222; border:1px solid #444; border-radius:6px; z-index:1000; box-shadow:0 4px 12px rgba(0,0,0,0.5); padding:4px 0;"></div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:8px;">
+                        <div class="prop-group" style="flex:1;">
+                            <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">글자 크기</label>
+                            <input type="number" id="propFontSize" min="10" max="400" value="80" style="width:100%; box-sizing:border-box; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; text-align:center; outline:none;">
+                        </div>
+                        <div class="prop-group" style="width:60px;">
+                            <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">글자 색상</label>
+                            <input type="color" id="propFill" value="#ffffff" style="width:100%; height:28px; border:1px solid #555; padding:0; cursor:pointer; background:transparent;">
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:8px;">
+                        <div class="prop-group" style="flex:1;">
+                            <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">외곽선 두께</label>
+                            <input type="number" id="propStrokeWidth" min="0" max="30" value="0" style="width:100%; box-sizing:border-box; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; text-align:center; outline:none;">
+                        </div>
+                        <div class="prop-group" style="width:60px;">
+                            <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">외곽선 색상</label>
+                            <input type="color" id="propStroke" value="#000000" style="width:100%; height:28px; border:1px solid #555; padding:0; cursor:pointer; background:transparent;">
+                        </div>
+                    </div>
+
+                    <div class="prop-group">
+                        <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">그림자 효과 (거리 / 번짐 / 색상)</label>
+                        <div style="display:flex; gap:6px;">
+                            <input type="number" id="propShadowOffset" min="-100" max="100" value="0" title="그림자 거리" style="flex:1; width:0; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; text-align:center; outline:none;">
+                            <input type="number" id="propShadowBlur" min="0" max="100" value="0" title="그림자 번짐" style="flex:1; width:0; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; text-align:center; outline:none;">
+                            <input type="color" id="propShadowColor" value="#000000" title="그림자 색상" style="width:40px; height:28px; border:1px solid #555; padding:0; cursor:pointer; background:transparent;">
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:8px;">
+                        <div class="prop-group" style="flex:1;">
+                            <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">자간</label>
+                            <input type="number" id="propCharSpacing" min="-200" max="1000" value="0" style="width:100%; box-sizing:border-box; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; text-align:center; outline:none;">
+                        </div>
+                        <div class="prop-group" style="flex:1;">
+                            <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">줄간격</label>
+                            <input type="number" id="propLineHeight" min="0.5" max="3.0" step="0.1" value="1.1" style="width:100%; box-sizing:border-box; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; text-align:center; outline:none;">
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:8px;">
+                        <div class="prop-group" style="flex:1;">
+                            <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">정렬</label>
+                            <div style="display:flex; gap:4px;">
+                                <button type="button" id="alignLeftBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-weight:bold;" title="왼쪽 정렬">왼쪽</button>
+                                <button type="button" id="alignCenterBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-weight:bold;" title="가운데 정렬">가운데</button>
+                                <button type="button" id="alignRightBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-weight:bold;" title="오른쪽 정렬">오른쪽</button>
+                            </div>
+                        </div>
+                        <div class="prop-group" style="flex:1;">
+                            <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">스타일</label>
+                            <div style="display:flex; gap:4px;">
+                                <button type="button" id="fontNormalBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-weight:normal;" title="Normal">N</button>
+                                <button type="button" id="fontBoldBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-weight:bold;" title="Bold">B</button>
+                                <button type="button" id="fontItalicBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-style:italic;" title="Italic">I</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 투명도 및 회전 -->
+                    <div style="display:flex; gap:8px;">
+                        <div class="prop-group" style="flex:1;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                <label style="font-size:11px; color:#ccc; margin:0;">투명도</label>
+                                <input type="number" id="propTextOpacityNum" min="10" max="100" value="100" style="width:40px; padding:2px; font-size:10px; text-align:center;">
+                            </div>
+                            <input type="range" id="propTextOpacity" min="10" max="100" value="100" style="width:100%; accent-color:#00bcd4; cursor:pointer;">
+                        </div>
+                        <div class="prop-group" style="flex:1;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                <label style="font-size:11px; color:#ccc; margin:0;">회전 각도</label>
+                                <input type="number" id="propTextAngleNum" min="0" max="360" value="0" style="width:40px; padding:2px; font-size:10px; text-align:center;">
+                            </div>
+                            <input type="range" id="propTextAngle" min="0" max="360" value="0" style="width:100%; accent-color:#00bcd4; cursor:pointer;">
+                        </div>
+                    </div>
+
+                    <!-- 자막 프리셋 관리 -->
+                    <div class="prop-group" style="border-top: 1px solid #444; padding-top: 10px; margin-top: 5px;">
+                        <label style="font-size:11px; color:#00bcd4; display:block; margin-bottom:6px; font-weight:bold;">✨ 자막 스타일 프리셋 (메인 공유)</label>
+                        <select id="propTextPresetSelect" style="width:100%; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; outline:none; margin-bottom:6px;">
+                            <option value="">프리셋 선택...</option>
+                        </select>
+                        <div style="display:flex; gap:4px;">
+                            <button type="button" id="propTextPresetLoadBtn" style="flex:1.2; padding:6px; background:#00bcd4; border:none; border-radius:4px; color:#000; font-size:11px; font-weight:bold; cursor:pointer;">적용</button>
+                            <button type="button" id="propTextPresetSaveBtn" style="flex:1.2; padding:6px; background:#4caf50; border:none; border-radius:4px; color:#fff; font-size:11px; font-weight:bold; cursor:pointer;">현재 저장</button>
+                            <button type="button" id="propTextPresetDeleteBtn" style="flex:0.8; padding:6px; background:#d32f2f; border:none; border-radius:4px; color:#fff; font-size:11px; font-weight:bold; cursor:pointer;">삭제</button>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div id="filter-empty-msg" style="color: #666; font-size: 13px; text-align: center; margin-top: 50px;">
                 효과나 필터를 선택하면<br>여기에 세부 옵션이 표시됩니다.
@@ -277,5 +427,6 @@
     <script src="./js/image-alpha-editor.js?v=20260617-17"></script>
     <script src="./js/image-crop-upscale.js?v=20260617-17"></script>
     <script src="./js/embed-bridge.js?v=20260617-17"></script>
+    <script src="./js/detail-bake.js?v=20260619"></script>
 </body>
 </html>

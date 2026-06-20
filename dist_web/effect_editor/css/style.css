@@ -7,7 +7,7 @@ body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     max-height: 100vh;
     overflow: hidden;
     grid-template-areas: "toolbar center filter effects"; 
-    grid-template-columns: 250px minmax(0, 1fr) 250px 250px; 
+    grid-template-columns: 300px minmax(0, 1fr) 260px 260px; 
 }
 
 .app-container > .toolbar,
@@ -698,7 +698,7 @@ button {
 /* 💡 반응형 컴팩트 레이아웃 분기 (화면 너비 1600px 미만 또는 높이 880px 미만) */
 @media (max-width: 1599px) or (max-height: 880px) {
     .app-container {
-        grid-template-columns: 200px minmax(0, 1fr) 210px 210px !important;
+        grid-template-columns: 250px minmax(0, 1fr) 210px 210px !important;
     }
 
     .toolbar, .filter-panel, .effects-list {
@@ -882,7 +882,7 @@ button {
 /* 💡 초소형 화면 (높이 720px 이하) 추가 최적화 */
 @media (max-height: 720px) {
     .app-container {
-        grid-template-columns: 180px minmax(0, 1fr) 190px 190px !important;
+        grid-template-columns: 230px minmax(0, 1fr) 190px 190px !important;
     }
     
     .toolbar, .filter-panel, .effects-list {
@@ -959,7 +959,7 @@ button {
 /* 7-1. 1920 해상도 대역 (2560px 미만) 기준 85% 축소 */
 @media (max-width: 2500px) {
     .app-container {
-        grid-template-columns: 212px minmax(0, 1fr) 212px 212px !important; /* 250px * 0.85 = 212.5px */
+        grid-template-columns: 260px minmax(0, 1fr) 212px 212px !important; /* 250px * 0.85 = 212.5px */
     }
     .toolbar, .filter-panel, .effects-list {
         padding: 13px !important; /* 15px * 0.85 = 12.75px */
@@ -1035,7 +1035,7 @@ button {
 /* 7-2. 컴팩트 레이아웃 분기 (1600px 미만) 75% 추가 축소 */
 @media (max-width: 1599px) or (max-height: 880px) {
     .app-container {
-        grid-template-columns: 150px minmax(0, 1fr) 158px 158px !important; /* 200px / 210px * 0.75 */
+        grid-template-columns: 200px minmax(0, 1fr) 158px 158px !important; /* 200px / 210px * 0.75 */
     }
     .toolbar, .filter-panel, .effects-list {
         padding: 6px !important;
@@ -1114,7 +1114,7 @@ button {
 /* 7-3. 초소형 화면 (높이 720px 이하) 75% 추가 축소 */
 @media (max-height: 720px) {
     .app-container {
-        grid-template-columns: 135px minmax(0, 1fr) 142px 142px !important; /* 180px / 190px * 0.75 */
+        grid-template-columns: 185px minmax(0, 1fr) 142px 142px !important; /* 180px / 190px * 0.75 */
     }
     .toolbar, .filter-panel, .effects-list {
         padding: 4.5px !important;
@@ -1148,4 +1148,125 @@ button {
         height: 18px !important;
         flex: 0 0 18px !important;
     }
-}
+}
+
+/* 상세페이지 모드 및 자막 스타일링 관련 추가 CSS */
+.canvas-area.detail-mode-scroll {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    align-items: flex-start !important;
+    padding: 20px 0;
+}
+.canvas-area.detail-mode-scroll .canvas-container {
+    max-height: none !important;
+}
+
+/* 자막 스타일 속성 패널 스타일링 */
+#text-properties-panel {
+    background-color: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 15px;
+}
+#text-properties-panel label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 4px;
+}
+#text-properties-panel input[type="number"],
+#text-properties-panel textarea,
+#text-properties-panel select {
+    background-color: #1e1e1e;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 4px;
+}
+#text-properties-panel input[type="number"]:focus,
+#text-properties-panel textarea:focus,
+#text-properties-panel select:focus {
+    border-color: #00bcd4;
+}
+#text-properties-panel button {
+    transition: background-color 0.2s, border-color 0.2s;
+}
+#text-properties-panel button:hover {
+    background-color: #444;
+}
+#text-properties-panel button.active {
+    background-color: #00bcd4 !important;
+    color: #000 !important;
+    border-color: #00bcd4 !important;
+}
+
+/* 폰트 선택 리스트 관련 스타일 */
+.font-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    border-bottom: 1px solid #333;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.font-item:hover {
+    background: #333;
+}
+.font-item.selected {
+    background: #115e59;
+    border-left: 3px solid #00bcd4;
+}
+.font-info {
+    flex: 1;
+    overflow: hidden;
+}
+.font-name {
+    font-size: 9px;
+    color: #888;
+    margin-bottom: 2px;
+}
+.font-preview {
+    font-size: 13px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.star-fav {
+    font-size: 15px;
+    color: #555;
+    cursor: pointer;
+    padding: 0 4px;
+    border: none;
+    background: none;
+    outline: none;
+}
+.star-fav:hover {
+    color: #888;
+}
+.star-fav.active {
+    color: #f59e0b;
+}
+
+/* hidden 클래스 추가 */
+.hidden {
+    display: none !important;
+}
+
+/* 상세페이지 입력폼 및 버튼 최적화 */
+#detail-dims-wrap {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+}
+#detail-dims-wrap input {
+    width: 60px !important;
+    font-size: 10px !important;
+    padding: 3px !important;
+}
+#detail-height-add {
+    padding: 3px 6px !important;
+    font-size: 9px !important;
+    height: auto !important;
+    align-self: center;
+}

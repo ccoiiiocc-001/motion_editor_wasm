@@ -2112,6 +2112,31 @@ window.updateTextPropertyPanel = function (obj) {
     if (obj.textAlign === 'left' && alignLeft) alignLeft.classList.add('active');
     if (obj.textAlign === 'center' && alignCenter) alignCenter.classList.add('active');
     if (obj.textAlign === 'right' && alignRight) alignRight.classList.add('active');
+
+    // 스타일 버튼 클래스 처리
+    const fontNormal = document.getElementById('fontNormalBtn');
+    const fontBold = document.getElementById('fontBoldBtn');
+    const fontItalic = document.getElementById('fontItalicBtn');
+
+    if (fontNormal) fontNormal.classList.remove('active');
+    if (fontBold) fontBold.classList.remove('active');
+    if (fontItalic) fontItalic.classList.remove('active');
+
+    let isBold = false;
+    let isItalic = false;
+
+    if (obj.isEditing) {
+        const styles = obj.getSelectionStyles();
+        isBold = styles.length > 0 ? (styles[0].fontWeight === 'bold') : (obj.fontWeight === 'bold');
+        isItalic = styles.length > 0 ? (styles[0].fontStyle === 'italic') : (obj.fontStyle === 'italic');
+    } else {
+        isBold = obj.fontWeight === 'bold';
+        isItalic = obj.fontStyle === 'italic';
+    }
+
+    if (isBold && fontBold) fontBold.classList.add('active');
+    if (isItalic && fontItalic) fontItalic.classList.add('active');
+    if (!isBold && !isItalic && fontNormal) fontNormal.classList.add('active');
 };
 
 // ── 스타일 부분 적용 (Rich Text) 또는 전체 적용을 결정하는 유틸 함수 ──
@@ -2253,6 +2278,13 @@ window.applySubtitleProperty = function (key, value) {
             }
         });
 
+        // 자막 드래그 선택 영역(부분 서식) 변경 시 스타일 상태 갱신
+        canvas.on('text:selection-changed', (e) => {
+            if (e.target && e.target.type === 'i-text') {
+                window.updateTextPropertyPanel(e.target);
+            }
+        });
+
         // 텍스트 속성 제어 패널 이벤트 바인딩
         const txtContent = document.getElementById('propTextContent');
         const fontFamily = document.getElementById('propFontFamily');
@@ -2357,6 +2389,79 @@ window.applySubtitleProperty = function (key, value) {
                 window.applySubtitleProperty('textAlign', 'right');
                 [alignLeft, alignCenter, alignRight].forEach(b => b?.classList.remove('active'));
                 alignRight.classList.add('active');
+            });
+        }
+
+        // 스타일 단추 리스너
+        const fontNormal = document.getElementById('fontNormalBtn');
+        const fontBold = document.getElementById('fontBoldBtn');
+        const fontItalic = document.getElementById('fontItalicBtn');
+
+        if (fontNormal) {
+            fontNormal.addEventListener('click', function() {
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    window.applySubtitleProperty('fontWeight', 'normal');
+                    window.applySubtitleProperty('fontStyle', 'normal');
+                    [fontNormal, fontBold, fontItalic].forEach(b => b?.classList.remove('active'));
+                    fontNormal.classList.add('active');
+                }
+            });
+        }
+
+        if (fontBold) {
+            fontBold.addEventListener('click', function() {
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    let currentVal = '';
+                    if (activeObject.isEditing) {
+                        const styles = activeObject.getSelectionStyles();
+                        currentVal = (styles.length > 0 && styles[0]) ? (styles[0].fontWeight || 'normal') : (activeObject.fontWeight || 'normal');
+                    } else {
+                        currentVal = activeObject.fontWeight || 'normal';
+                    }
+                    const nextVal = (currentVal === 'bold') ? 'normal' : 'bold';
+                    window.applySubtitleProperty('fontWeight', nextVal);
+                    
+                    // 버튼 활성화 상태 갱신
+                    if (nextVal === 'bold') {
+                        fontBold.classList.add('active');
+                        fontNormal.classList.remove('active');
+                    } else {
+                        fontBold.classList.remove('active');
+                        if (!fontItalic.classList.contains('active')) {
+                            fontNormal.classList.add('active');
+                        }
+                    }
+                }
+            });
+        }
+
+        if (fontItalic) {
+            fontItalic.addEventListener('click', function() {
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    let currentVal = '';
+                    if (activeObject.isEditing) {
+                        const styles = activeObject.getSelectionStyles();
+                        currentVal = (styles.length > 0 && styles[0]) ? (styles[0].fontStyle || 'normal') : (activeObject.fontStyle || 'normal');
+                    } else {
+                        currentVal = activeObject.fontStyle || 'normal';
+                    }
+                    const nextVal = (currentVal === 'italic') ? 'normal' : 'italic';
+                    window.applySubtitleProperty('fontStyle', nextVal);
+                    
+                    // 버튼 활성화 상태 갱신
+                    if (nextVal === 'italic') {
+                        fontItalic.classList.add('active');
+                        fontNormal.classList.remove('active');
+                    } else {
+                        fontItalic.classList.remove('active');
+                        if (!fontBold.classList.contains('active')) {
+                            fontNormal.classList.add('active');
+                        }
+                    }
+                }
             });
         }
 
@@ -2633,7 +2738,6 @@ window.refreshEffectTextFontList = function() {
         syncItem.innerHTML = '🔄 PC 글꼴 가져오기 / 동기화';
         syncItem.onclick = async (e) => {
             e.stopPropagation();
-            alert("PC 글꼴 동기화를 시작합니다. 브라우저 권한을 수락해 주세요.");
             await window.fetchEffectLocalFonts();
         };
         el.appendChild(syncItem);
@@ -2717,9 +2821,8 @@ window.fetchEffectLocalFonts = async () => {
         effectLocalFonts = [...new Set(f.map(x => x.family))];
         localStorage.setItem('shorts_local_fonts', JSON.stringify(effectLocalFonts));
         window.refreshEffectTextFontList();
-        alert("PC 글꼴 목록 동기화가 완료되었습니다.");
+        console.log("PC 글꼴 목록 동기화 완료");
     } catch (err) {
         console.error("Fetch local fonts failed:", err);
-        alert("글꼴 동기화 실패: 권한을 허용하지 않았거나 브라우저에서 차단되었습니다.");
     }
 };

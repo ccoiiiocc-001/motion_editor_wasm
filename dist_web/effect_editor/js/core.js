@@ -238,8 +238,23 @@ function updateCanvasSize() {
     if (canvasSizeRaf) return;
     canvasSizeRaf = requestAnimationFrame(() => {
         canvasSizeRaf = 0;
-        if (!resolutionSelect?.value || !window.canvas) return;
-        const [logicalW, logicalH] = resolutionSelect.value.split('x').map(Number);
+        if (!window.canvas) return;
+
+        const detailModeCheckbox = document.getElementById('detail-page-mode');
+        const isDetailMode = detailModeCheckbox ? detailModeCheckbox.checked : false;
+
+        let logicalW, logicalH;
+
+        if (isDetailMode) {
+            const wInput = document.getElementById('detail-width');
+            const hInput = document.getElementById('detail-height');
+            logicalW = wInput ? parseInt(wInput.value) || 900 : 900;
+            logicalH = hInput ? parseInt(hInput.value) || 2000 : 2000;
+        } else {
+            if (!resolutionSelect?.value) return;
+            [logicalW, logicalH] = resolutionSelect.value.split('x').map(Number);
+        }
+
         if (!logicalW || !logicalH) return;
 
         window.canvas.setZoom(1);
@@ -247,8 +262,16 @@ function updateCanvasSize() {
 
         const vp = getCanvasViewportSize();
         const margin = 20;
-        const fitScale = Math.min((vp.w - margin) / logicalW, (vp.h - margin) / logicalH);
-        const scale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.05;
+
+        let scale;
+        if (isDetailMode) {
+            // 상세페이지 모드에서는 가로폭에 맞춰 스케일링 (세로는 부모 컨테이너가 스크롤)
+            const fitScale = (vp.w - margin) / logicalW;
+            scale = Number.isFinite(fitScale) && fitScale > 0 ? Math.min(1.0, fitScale) : 1.0;
+        } else {
+            const fitScale = Math.min((vp.w - margin) / logicalW, (vp.h - margin) / logicalH);
+            scale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.05;
+        }
 
         window.canvas.setDimensions({
             width: `${logicalW * scale}px`,
@@ -2025,4 +2048,781 @@ window.fitObjectToCanvas = function(type) {
     if (scaleSlider) scaleSlider.value = Math.round(sX * 100);
     if (typeof window.saveHistorySnapshot === 'function') window.saveHistorySnapshot();
     if (typeof window.updatePropertyPanel === 'function') window.updatePropertyPanel(obj);
+};
+
+// ── 상세페이지 자막(텍스트) 속성 패널 바인딩 및 업데이트 함수 ──
+window.updateTextPropertyPanel = function (obj) {
+    if (!obj || obj.type !== 'i-text') {
+        document.getElementById('text-properties-panel').style.display = 'none';
+        return;
+    }
+    
+    // 다른 조절 패널 숨기기
+    const subtitlePresetPanel = document.getElementById('subtitle-preset-panel');
+    if (subtitlePresetPanel) subtitlePresetPanel.style.display = 'none';
+    const filterPanel = document.getElementById('filter-settings-panel');
+    if (filterPanel) filterPanel.style.display = 'none';
+    const emptyMsg = document.getElementById('filter-empty-msg');
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    // 텍스트 속성 제어 패널 켜기
+    const textPanel = document.getElementById('text-properties-panel');
+    if (textPanel) textPanel.style.display = 'block';
+
+    const txtContent = document.getElementById('propTextContent');
+    const fontLabel = document.getElementById('propFontLabel');
+    const fontSize = document.getElementById('propFontSize');
+    const fill = document.getElementById('propFill');
+    const strokeWidth = document.getElementById('propStrokeWidth');
+    const stroke = document.getElementById('propStroke');
+    const shadowOffset = document.getElementById('propShadowOffset');
+    const shadowBlur = document.getElementById('propShadowBlur');
+    const shadowColor = document.getElementById('propShadowColor');
+    const charSpacing = document.getElementById('propCharSpacing');
+    const lineHeight = document.getElementById('propLineHeight');
+
+    if (txtContent) txtContent.value = obj.text || '';
+    if (fontLabel) {
+        fontLabel.textContent = obj.fontFamily || 'Pretendard';
+    }
+    if (fontSize) fontSize.value = obj.fontSize || 80;
+    if (fill) fill.value = obj.fill || '#ffffff';
+    if (strokeWidth) strokeWidth.value = obj.strokeWidth || 0;
+    if (stroke) stroke.value = obj.stroke || '#000000';
+
+    if (obj.shadow) {
+        if (shadowOffset) shadowOffset.value = obj.shadow.offsetX || 0;
+        if (shadowBlur) shadowBlur.value = obj.shadow.blur || 0;
+        if (shadowColor) shadowColor.value = obj.shadow.color || '#000000';
+    } else {
+        if (shadowOffset) shadowOffset.value = 0;
+        if (shadowBlur) shadowBlur.value = 0;
+        if (shadowColor) shadowColor.value = '#000000';
+    }
+
+    if (charSpacing) charSpacing.value = obj.charSpacing || 0;
+    if (lineHeight) lineHeight.value = obj.lineHeight || 1.1;
+
+    // 정렬 버튼 클래스 처리
+    const alignLeft = document.getElementById('alignLeftBtn');
+    const alignCenter = document.getElementById('alignCenterBtn');
+    const alignRight = document.getElementById('alignRightBtn');
+
+    [alignLeft, alignCenter, alignRight].forEach(btn => btn?.classList.remove('active'));
+    if (obj.textAlign === 'left' && alignLeft) alignLeft.classList.add('active');
+    if (obj.textAlign === 'center' && alignCenter) alignCenter.classList.add('active');
+    if (obj.textAlign === 'right' && alignRight) alignRight.classList.add('active');
+
+    // 스타일 버튼 클래스 처리
+    const fontNormal = document.getElementById('fontNormalBtn');
+    const fontBold = document.getElementById('fontBoldBtn');
+    const fontItalic = document.getElementById('fontItalicBtn');
+
+    if (fontNormal) fontNormal.classList.remove('active');
+    if (fontBold) fontBold.classList.remove('active');
+    if (fontItalic) fontItalic.classList.remove('active');
+
+    let isBold = false;
+    let isItalic = false;
+
+    if (obj.isEditing) {
+        const styles = obj.getSelectionStyles();
+        isBold = styles.length > 0 ? (styles[0].fontWeight === 'bold') : (obj.fontWeight === 'bold');
+        isItalic = styles.length > 0 ? (styles[0].fontStyle === 'italic') : (obj.fontStyle === 'italic');
+    } else {
+        isBold = obj.fontWeight === 'bold';
+        isItalic = obj.fontStyle === 'italic';
+    }
+
+    if (isBold && fontBold) fontBold.classList.add('active');
+    if (isItalic && fontItalic) fontItalic.classList.add('active');
+    if (!isBold && !isItalic && fontNormal) fontNormal.classList.add('active');
+};
+
+// ── 스타일 부분 적용 (Rich Text) 또는 전체 적용을 결정하는 유틸 함수 ──
+window.applySubtitleProperty = function (key, value) {
+    const canvas = window.canvas;
+    if (!canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject || activeObject.type !== 'i-text') return;
+
+    if (activeObject.isEditing) {
+        // 드래그한 선택 영역에만 개별 스타일 적용
+        const styles = {};
+        styles[key] = value;
+        activeObject.setSelectionStyles(styles);
+    } else {
+        // 객체 전체 속성 변경
+        activeObject.set(key, value);
+    }
+    
+    canvas.requestRenderAll();
+    
+    if (typeof window.saveEffectHistorySnapshot === 'function') {
+        window.saveEffectHistorySnapshot({ delay: 500 });
+    }
+};
+
+// ── 상세페이지 캔버스 및 자막 편집 폼 이벤트 초기화 ──
+(function initDetailPageAndTextProperties() {
+    // Fabric.js 초기화 완료 후 실행을 위한 타이머 대기
+    setTimeout(() => {
+        const canvas = window.canvas;
+        if (!canvas) return;
+
+        const detailModeCheckbox = document.getElementById('detail-page-mode');
+        const detailDimsWrap = document.getElementById('detail-dims-wrap');
+        const resolutionSelect = document.getElementById('resolution');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const detailWidthInput = document.getElementById('detail-width');
+        const detailHeightInput = document.getElementById('detail-height');
+        const detailHeightAddBtn = document.getElementById('detail-height-add');
+
+        if (detailModeCheckbox) {
+            detailModeCheckbox.addEventListener('change', function() {
+                const isDetail = this.checked;
+                if (isDetail) {
+                    if (resolutionSelect) resolutionSelect.style.display = 'none';
+                    if (detailDimsWrap) detailDimsWrap.style.display = 'flex';
+                    if (canvasWrapper) canvasWrapper.classList.add('detail-mode-scroll');
+                } else {
+                    if (resolutionSelect) resolutionSelect.style.display = 'inline-block';
+                    if (detailDimsWrap) detailDimsWrap.style.display = 'none';
+                    if (canvasWrapper) canvasWrapper.classList.remove('detail-mode-scroll');
+                }
+                window.updateEffectEditorCanvasSize();
+            });
+        }
+
+        if (detailWidthInput) {
+            detailWidthInput.addEventListener('input', () => window.updateEffectEditorCanvasSize());
+        }
+        if (detailHeightInput) {
+            detailHeightInput.addEventListener('input', () => window.updateEffectEditorCanvasSize());
+        }
+        if (detailHeightAddBtn && detailHeightInput) {
+            detailHeightAddBtn.addEventListener('click', () => {
+                const curH = parseInt(detailHeightInput.value) || 2000;
+                detailHeightInput.value = curH + 500;
+                window.updateEffectEditorCanvasSize();
+            });
+        }
+
+        // 오브젝트 드래그(이동) 시 캔버스 아래 영역을 넘어가면 세로 길이 자동 확장
+        canvas.on('object:moving', function(e) {
+            const isDetail = detailModeCheckbox ? detailModeCheckbox.checked : false;
+            if (!isDetail || !detailHeightInput) return;
+
+            const obj = e.target;
+            if (!obj) return;
+
+            // 오브젝트의 바운더리 박스 바닥 계산
+            const bound = obj.getBoundingRect();
+            const objBottom = bound.top + bound.height;
+            const currentCanvasHeight = canvas.height;
+
+            if (objBottom > currentCanvasHeight) {
+                const newHeight = Math.ceil(objBottom + 120); // 추가 여백 부여
+                detailHeightInput.value = newHeight;
+                
+                // 실제 해상도와 줌 크기 재계산
+                canvas.setDimensions({ width: canvas.width, height: newHeight });
+                
+                const logicalW = detailWidthInput ? parseInt(detailWidthInput.value) || 900 : 900;
+                const vp = window.getCanvasViewportSize ? window.getCanvasViewportSize() : { w: window.innerWidth - 500, h: window.innerHeight - 100 };
+                const margin = 20;
+                const fitScale = (vp.w - margin) / logicalW;
+                const scale = Number.isFinite(fitScale) && fitScale > 0 ? Math.min(1.0, fitScale) : 1.0;
+                
+                canvas.setDimensions({
+                    width: `${logicalW * scale}px`,
+                    height: `${newHeight * scale}px`
+                }, { cssOnly: true });
+                
+                canvas.calcOffset();
+                canvas.requestRenderAll();
+            }
+        });
+
+        // 캔버스 객체 선택 시 패널 스위칭 및 값 동기화
+        canvas.on('selection:created', (e) => {
+            const obj = e.selected?.[0] || e.target;
+            if (obj && obj.type === 'i-text') {
+                window.updateTextPropertyPanel(obj);
+            } else {
+                const textPanel = document.getElementById('text-properties-panel');
+                if (textPanel) textPanel.style.display = 'none';
+            }
+        });
+        canvas.on('selection:updated', (e) => {
+            const obj = e.selected?.[0] || e.target;
+            if (obj && obj.type === 'i-text') {
+                window.updateTextPropertyPanel(obj);
+            } else {
+                const textPanel = document.getElementById('text-properties-panel');
+                if (textPanel) textPanel.style.display = 'none';
+            }
+        });
+        canvas.on('selection:cleared', () => {
+            const textPanel = document.getElementById('text-properties-panel');
+            if (textPanel) textPanel.style.display = 'none';
+            const emptyMsg = document.getElementById('filter-empty-msg');
+            if (emptyMsg) emptyMsg.style.display = 'block';
+        });
+
+        // 더블클릭해서 자막 글자를 직접 수정할 시 동기화
+        canvas.on('text:changed', (e) => {
+            if (e.target && e.target.type === 'i-text') {
+                const txtContent = document.getElementById('propTextContent');
+                if (txtContent) txtContent.value = e.target.text || '';
+            }
+        });
+
+        // 자막 드래그 선택 영역(부분 서식) 변경 시 스타일 상태 갱신
+        canvas.on('text:selection-changed', (e) => {
+            if (e.target && e.target.type === 'i-text') {
+                window.updateTextPropertyPanel(e.target);
+            }
+        });
+
+        // 텍스트 속성 제어 패널 이벤트 바인딩
+        const txtContent = document.getElementById('propTextContent');
+        const fontFamily = document.getElementById('propFontFamily');
+        const fontSize = document.getElementById('propFontSize');
+        const fill = document.getElementById('propFill');
+        const strokeWidth = document.getElementById('propStrokeWidth');
+        const stroke = document.getElementById('propStroke');
+        const shadowOffset = document.getElementById('propShadowOffset');
+        const shadowBlur = document.getElementById('propShadowBlur');
+        const shadowColor = document.getElementById('propShadowColor');
+        const charSpacing = document.getElementById('propCharSpacing');
+        const lineHeight = document.getElementById('propLineHeight');
+
+        if (txtContent) {
+            txtContent.addEventListener('input', function() {
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    activeObject.set('text', this.value);
+                    canvas.requestRenderAll();
+                }
+            });
+        }
+        if (fontFamily) {
+            fontFamily.addEventListener('change', function() {
+                window.applySubtitleProperty('fontFamily', this.value);
+            });
+        }
+        if (fontSize) {
+            fontSize.addEventListener('input', function() {
+                window.applySubtitleProperty('fontSize', parseInt(this.value) || 20);
+            });
+        }
+        if (fill) {
+            fill.addEventListener('input', function() {
+                window.applySubtitleProperty('fill', this.value);
+            });
+        }
+        if (strokeWidth) {
+            strokeWidth.addEventListener('input', function() {
+                window.applySubtitleProperty('strokeWidth', parseInt(this.value) || 0);
+            });
+        }
+        if (stroke) {
+            stroke.addEventListener('input', function() {
+                window.applySubtitleProperty('stroke', this.value);
+            });
+        }
+
+        // 그림자 통합 조절기
+        function getShadowValue() {
+            const offset = parseInt(shadowOffset?.value) || 0;
+            const blur = parseInt(shadowBlur?.value) || 0;
+            const color = shadowColor?.value || '#000000';
+            if (offset === 0 && blur === 0) return null;
+            return new fabric.Shadow({
+                color: color,
+                blur: blur,
+                offsetX: offset,
+                offsetY: offset
+            });
+        }
+        const triggerShadowUpdate = () => {
+            window.applySubtitleProperty('shadow', getShadowValue());
+        };
+
+        if (shadowOffset) shadowOffset.addEventListener('input', triggerShadowUpdate);
+        if (shadowBlur) shadowBlur.addEventListener('input', triggerShadowUpdate);
+        if (shadowColor) shadowColor.addEventListener('input', triggerShadowUpdate);
+
+        if (charSpacing) {
+            charSpacing.addEventListener('input', function() {
+                window.applySubtitleProperty('charSpacing', parseInt(this.value) || 0);
+            });
+        }
+        if (lineHeight) {
+            lineHeight.addEventListener('input', function() {
+                window.applySubtitleProperty('lineHeight', parseFloat(this.value) || 1.0);
+            });
+        }
+
+        // 정렬 단추 리스너
+        const alignLeft = document.getElementById('alignLeftBtn');
+        const alignCenter = document.getElementById('alignCenterBtn');
+        const alignRight = document.getElementById('alignRightBtn');
+
+        if (alignLeft) {
+            alignLeft.addEventListener('click', function() {
+                window.applySubtitleProperty('textAlign', 'left');
+                [alignLeft, alignCenter, alignRight].forEach(b => b?.classList.remove('active'));
+                alignLeft.classList.add('active');
+            });
+        }
+        if (alignCenter) {
+            alignCenter.addEventListener('click', function() {
+                window.applySubtitleProperty('textAlign', 'center');
+                [alignLeft, alignCenter, alignRight].forEach(b => b?.classList.remove('active'));
+                alignCenter.classList.add('active');
+            });
+        }
+        if (alignRight) {
+            alignRight.addEventListener('click', function() {
+                window.applySubtitleProperty('textAlign', 'right');
+                [alignLeft, alignCenter, alignRight].forEach(b => b?.classList.remove('active'));
+                alignRight.classList.add('active');
+            });
+        }
+
+        // 스타일 단추 리스너
+        const fontNormal = document.getElementById('fontNormalBtn');
+        const fontBold = document.getElementById('fontBoldBtn');
+        const fontItalic = document.getElementById('fontItalicBtn');
+
+        if (fontNormal) {
+            fontNormal.addEventListener('click', function() {
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    window.applySubtitleProperty('fontWeight', 'normal');
+                    window.applySubtitleProperty('fontStyle', 'normal');
+                    [fontNormal, fontBold, fontItalic].forEach(b => b?.classList.remove('active'));
+                    fontNormal.classList.add('active');
+                }
+            });
+        }
+
+        if (fontBold) {
+            fontBold.addEventListener('click', function() {
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    let currentVal = '';
+                    if (activeObject.isEditing) {
+                        const styles = activeObject.getSelectionStyles();
+                        currentVal = (styles.length > 0 && styles[0]) ? (styles[0].fontWeight || 'normal') : (activeObject.fontWeight || 'normal');
+                    } else {
+                        currentVal = activeObject.fontWeight || 'normal';
+                    }
+                    const nextVal = (currentVal === 'bold') ? 'normal' : 'bold';
+                    window.applySubtitleProperty('fontWeight', nextVal);
+                    
+                    // 버튼 활성화 상태 갱신
+                    if (nextVal === 'bold') {
+                        fontBold.classList.add('active');
+                        fontNormal.classList.remove('active');
+                    } else {
+                        fontBold.classList.remove('active');
+                        if (!fontItalic.classList.contains('active')) {
+                            fontNormal.classList.add('active');
+                        }
+                    }
+                }
+            });
+        }
+
+        if (fontItalic) {
+            fontItalic.addEventListener('click', function() {
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    let currentVal = '';
+                    if (activeObject.isEditing) {
+                        const styles = activeObject.getSelectionStyles();
+                        currentVal = (styles.length > 0 && styles[0]) ? (styles[0].fontStyle || 'normal') : (activeObject.fontStyle || 'normal');
+                    } else {
+                        currentVal = activeObject.fontStyle || 'normal';
+                    }
+                    const nextVal = (currentVal === 'italic') ? 'normal' : 'italic';
+                    window.applySubtitleProperty('fontStyle', nextVal);
+                    
+                    // 버튼 활성화 상태 갱신
+                    if (nextVal === 'italic') {
+                        fontItalic.classList.add('active');
+                        fontNormal.classList.remove('active');
+                    } else {
+                        fontItalic.classList.remove('active');
+                        if (!fontBold.classList.contains('active')) {
+                            fontNormal.classList.add('active');
+                        }
+                    }
+                }
+            });
+        }
+
+        // ── 텍스트/자막 투명도 및 회전 조절 ──
+        const textOpacity = document.getElementById('propTextOpacity');
+        const textOpacityNum = document.getElementById('propTextOpacityNum');
+        const textAngle = document.getElementById('propTextAngle');
+        const textAngleNum = document.getElementById('propTextAngleNum');
+
+        if (textOpacity && textOpacityNum) {
+            const handleTextOpacityChange = (val) => {
+                const pct = Math.max(10, Math.min(100, parseInt(val) || 100));
+                textOpacity.value = pct;
+                textOpacityNum.value = pct;
+                
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    activeObject.set('opacity', pct / 100);
+                    canvas.requestRenderAll();
+                }
+            };
+            textOpacity.addEventListener('input', (e) => handleTextOpacityChange(e.target.value));
+            textOpacityNum.addEventListener('input', (e) => handleTextOpacityChange(e.target.value));
+        }
+
+        if (textAngle && textAngleNum) {
+            const handleTextAngleChange = (val) => {
+                const deg = (parseInt(val) || 0) % 360;
+                textAngle.value = deg;
+                textAngleNum.value = deg;
+
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'i-text') {
+                    activeObject.set('angle', deg);
+                    canvas.requestRenderAll();
+                }
+            };
+            textAngle.addEventListener('input', (e) => handleTextAngleChange(e.target.value));
+            textAngleNum.addEventListener('input', (e) => handleTextAngleChange(e.target.value));
+        }
+
+        // ── 이미지 투명도 및 회전 조절 ──
+        const imgOpacity = document.getElementById('propImageOpacity');
+        const imgOpacityNum = document.getElementById('propImageOpacityNum');
+        const imgAngle = document.getElementById('propImageAngle');
+        const imgAngleNum = document.getElementById('propImageAngleNum');
+
+        if (imgOpacity && imgOpacityNum) {
+            const handleImgOpacityChange = (val) => {
+                const pct = Math.max(10, Math.min(100, parseInt(val) || 100));
+                imgOpacity.value = pct;
+                imgOpacityNum.value = pct;
+
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'image') {
+                    activeObject.set('opacity', pct / 100);
+                    canvas.requestRenderAll();
+                }
+            };
+            imgOpacity.addEventListener('input', (e) => handleImgOpacityChange(e.target.value));
+            imgOpacityNum.addEventListener('input', (e) => handleImgOpacityChange(e.target.value));
+        }
+
+        if (imgAngle && imgAngleNum) {
+            const handleImgAngleChange = (val) => {
+                const deg = (parseInt(val) || 0) % 360;
+                imgAngle.value = deg;
+                imgAngleNum.value = deg;
+
+                const activeObject = canvas.getActiveObject();
+                if (activeObject && activeObject.type === 'image') {
+                    activeObject.set('angle', deg);
+                    canvas.requestRenderAll();
+                }
+            };
+            imgAngle.addEventListener('input', (e) => handleImgAngleChange(e.target.value));
+            imgAngleNum.addEventListener('input', (e) => handleImgAngleChange(e.target.value));
+        }
+
+        // ── 프리셋 CRUD 버튼 이벤트 바인딩 ──
+        const presetSelect = document.getElementById('propTextPresetSelect');
+        const presetLoadBtn = document.getElementById('propTextPresetLoadBtn');
+        const presetSaveBtn = document.getElementById('propTextPresetSaveBtn');
+        const presetDeleteBtn = document.getElementById('propTextPresetDeleteBtn');
+
+        if (presetLoadBtn && presetSelect) {
+            presetLoadBtn.addEventListener('click', function() {
+                const activeObject = canvas.getActiveObject();
+                if (!activeObject || activeObject.type !== 'i-text') {
+                    alert('프리셋을 적용할 자막 레이어를 선택하세요.');
+                    return;
+                }
+                const name = presetSelect.value;
+                if (!name) {
+                    alert('적용할 프리셋을 선택하세요.');
+                    return;
+                }
+
+                let presets = {};
+                try { presets = JSON.parse(localStorage.getItem('subtitlePresets') || '{}'); } catch(_) {}
+                const p = presets[name];
+                if (!p) return;
+
+                // 프리셋 데이터를 Fabric IText 객체에 입히기
+                if (typeof window.applySubtitlePresetToFabricText === 'function') {
+                    window.applySubtitlePresetToFabricText(activeObject, name, { keepText: true, keepPosition: true });
+                } else {
+                    activeObject.set({
+                        fontFamily: p.fontFamily,
+                        fontSize: p.fontSize,
+                        fill: p.fill,
+                        charSpacing: p.charSpacing,
+                        strokeWidth: p.strokeWidth,
+                        stroke: p.stroke,
+                        lineHeight: p.lineHeight,
+                        fontWeight: p.fontWeight || 'normal',
+                        fontStyle: p.fontStyle || 'normal',
+                        textAlign: p.textAlign || 'left',
+                        opacity: p.opacity !== undefined ? p.opacity : 1,
+                        angle: p.angle || 0
+                    });
+                    if (p.shadow) {
+                        activeObject.set('shadow', new fabric.Shadow({
+                            blur: p.shadow.blur || 0,
+                            offsetX: p.shadow.offsetX !== undefined ? p.shadow.offsetX : (p.shadow.blur || 0),
+                            offsetY: p.shadow.offsetY !== undefined ? p.shadow.offsetY : (p.shadow.blur || 0),
+                            color: p.shadow.color
+                        }));
+                    } else {
+                        activeObject.set('shadow', null);
+                    }
+                }
+                
+                canvas.requestRenderAll();
+                window.updateTextPropertyPanel(activeObject);
+                alert('프리셋 스타일을 적용했습니다.');
+            });
+        }
+
+        if (presetSaveBtn) {
+            presetSaveBtn.addEventListener('click', function() {
+                const activeObject = canvas.getActiveObject();
+                if (!activeObject || activeObject.type !== 'i-text') {
+                    alert('스타일을 저장할 자막 레이어를 선택하세요.');
+                    return;
+                }
+                const name = prompt('저장할 자막 프리셋 이름을 입력해 주세요 (메인과 공유됨):');
+                if (!name || !name.trim()) return;
+                const trimmedName = name.trim();
+
+                let presets = {};
+                try { presets = JSON.parse(localStorage.getItem('subtitlePresets') || '{}'); } catch(_) {}
+
+                if (presets[trimmedName]) {
+                    if (!confirm(`이미 '${trimmedName}' 프리셋이 존재합니다. 덮어씌우시겠습니까?`)) {
+                        return;
+                    }
+                }
+
+                const bOp = activeObject.opacity;
+                const bSx = activeObject.scaleX;
+                const bSy = activeObject.scaleY;
+                const bAng = activeObject.angle;
+                const bL = activeObject.left;
+                const bT = activeObject.top;
+
+                presets[trimmedName] = {
+                    text: activeObject.text,
+                    fontFamily: activeObject.fontFamily,
+                    fontSize: activeObject.fontSize,
+                    fill: activeObject.fill,
+                    charSpacing: activeObject.charSpacing,
+                    strokeWidth: activeObject.strokeWidth,
+                    stroke: activeObject.stroke,
+                    lineHeight: activeObject.lineHeight,
+                    fontWeight: activeObject.fontWeight || 'normal',
+                    fontStyle: activeObject.fontStyle || 'normal',
+                    textAlign: activeObject.textAlign || 'left',
+                    left: bL,
+                    top: bT,
+                    angle: bAng,
+                    scaleX: bSx,
+                    scaleY: bSy,
+                    opacity: bOp,
+                    baseLeft: bL,
+                    baseTop: bT,
+                    baseAngle: bAng,
+                    baseScaleX: bSx,
+                    baseScaleY: bSy,
+                    baseOpacity: bOp,
+                    shadow: activeObject.shadow ? {
+                        blur: activeObject.shadow.blur,
+                        color: activeObject.shadow.color,
+                        offsetX: activeObject.shadow.offsetX,
+                        offsetY: activeObject.shadow.offsetY
+                    } : null
+                };
+
+                localStorage.setItem('subtitlePresets', JSON.stringify(presets));
+                window.refreshEffectTextPresets();
+                presetSelect.value = trimmedName;
+                alert('자막 프리셋을 저장 완료했습니다.');
+            });
+        }
+
+        if (presetDeleteBtn && presetSelect) {
+            presetDeleteBtn.addEventListener('click', function() {
+                const name = presetSelect.value;
+                if (!name) {
+                    alert('삭제할 프리셋을 먼저 선택해 주세요.');
+                    return;
+                }
+                if (!confirm(`'${name}' 프리셋을 영구 삭제하시겠습니까? (메인에서도 삭제됨)`)) {
+                    return;
+                }
+
+                let presets = {};
+                try { presets = JSON.parse(localStorage.getItem('subtitlePresets') || '{}'); } catch(_) {}
+                delete presets[name];
+
+                localStorage.setItem('subtitlePresets', JSON.stringify(presets));
+                window.refreshEffectTextPresets();
+                alert('자막 프리셋이 삭제되었습니다.');
+            });
+        }
+
+        // ── 폰트 선택 드롭다운 버튼 토글 이벤트 바인딩 ──
+        const fontBtn = document.getElementById('propFontBtn');
+        const fontList = document.getElementById('propFontList');
+        if (fontBtn && fontList) {
+            fontBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                fontList.classList.toggle('hidden');
+                if (!fontList.classList.contains('hidden')) {
+                    window.refreshEffectTextFontList();
+                    // 최초 1회만 자동 동기화 (아직 데이터가 비어있을 때만)
+                    const cachedLocal = JSON.parse(localStorage.getItem('shorts_local_fonts') || '[]');
+                    if (cachedLocal.length === 0 && window.queryLocalFonts) {
+                        window.fetchEffectLocalFonts();
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            if (fontList && !fontList.contains(e.target) && e.target !== fontBtn && !fontBtn?.contains(e.target)) {
+                fontList.classList.add('hidden');
+            }
+        });
+    }, 500);
+})();
+
+// ── 폰트 리스트 렌더링 및 로컬 폰트 동기화 로직 ──
+const effectGoogleFonts = ['Pretendard', 'Black Han Sans', 'Do Hyeon', 'Jua', 'Noto Sans KR', 'Nanum Gothic', 'Nanum Myeongjo', 'Dancing Script', 'Pacifico', 'Satisfy', 'Great Vibes'];
+let effectLocalFonts = JSON.parse(localStorage.getItem('shorts_local_fonts')) || [];
+let effectFavoriteFonts = JSON.parse(localStorage.getItem('shorts_fav_fonts')) || [];
+
+window.refreshEffectTextFontList = function() {
+    const el = document.getElementById('propFontList');
+    if (!el) return;
+    el.innerHTML = '';
+
+    // PC 폰트 가져오기 동기화 버튼 (브라우저 queryLocalFonts 지원 시)
+    if (window.queryLocalFonts) {
+        const syncItem = document.createElement('div');
+        syncItem.className = 'font-item';
+        syncItem.style.background = '#0e3a40';
+        syncItem.style.borderBottom = '1px solid #115e59';
+        syncItem.style.justifyContent = 'center';
+        syncItem.style.fontWeight = 'bold';
+        syncItem.style.color = '#00bcd4';
+        syncItem.style.fontSize = '11px';
+        syncItem.style.cursor = 'pointer';
+        syncItem.innerHTML = '🔄 PC 글꼴 가져오기 / 동기화';
+        syncItem.onclick = async (e) => {
+            e.stopPropagation();
+            await window.fetchEffectLocalFonts();
+        };
+        el.appendChild(syncItem);
+    }
+
+    // 최신 로컬/즐겨찾기 상태 갱신
+    effectLocalFonts = JSON.parse(localStorage.getItem('shorts_local_fonts')) || [];
+    effectFavoriteFonts = JSON.parse(localStorage.getItem('shorts_fav_fonts')) || [];
+
+    let all = [...effectGoogleFonts, ...effectLocalFonts];
+    all = [...new Set(all)];
+    all.sort((a, b) => {
+        const aF = effectFavoriteFonts.includes(a), bF = effectFavoriteFonts.includes(b);
+        return aF && !bF ? -1 : !aF && bF ? 1 : a.localeCompare(b);
+    });
+
+    const activeObject = window.canvas ? window.canvas.getActiveObject() : null;
+    const currentFont = activeObject ? activeObject.fontFamily : 'Pretendard';
+
+    all.forEach(f => {
+        const i = document.createElement('div');
+        const isS = (f === currentFont || (currentFont && currentFont.indexOf(f) === 0));
+        const isF = effectFavoriteFonts.includes(f);
+        i.className = `font-item ${isS ? 'selected' : ''}`;
+        i.innerHTML = `
+            <div class="font-info">
+                <div class="font-name">${f}</div>
+                <div class="font-preview" style="font-family:'${f}', sans-serif;">가나다 ABC</div>
+            </div>
+            <button class="star-fav ${isF ? 'active' : ''}">★</button>
+        `;
+        
+        // 글꼴 클릭 시 적용
+        const info = i.querySelector('.font-info');
+        if (info) {
+            info.onclick = (e) => {
+                e.stopPropagation();
+                window.applyEffectTextFont(f);
+            };
+        }
+        
+        // 즐겨찾기 별 클릭 시 토글
+        const favBtn = i.querySelector('.star-fav');
+        if (favBtn) {
+            favBtn.onclick = (e) => {
+                e.stopPropagation();
+                window.toggleEffectFontFav(f);
+            };
+        }
+        
+        el.appendChild(i);
+    });
+};
+
+window.applyEffectTextFont = function (n) {
+    window.applySubtitleProperty('fontFamily', n);
+    const label = document.getElementById('propFontLabel');
+    if (label) label.textContent = n;
+    const list = document.getElementById('propFontList');
+    if (list) list.classList.add('hidden');
+    
+    document.fonts.load(`10px "${n}"`).then(() => {
+        if (window.canvas) window.canvas.requestRenderAll();
+    });
+};
+
+window.toggleEffectFontFav = function (f) {
+    if (effectFavoriteFonts.includes(f)) {
+        effectFavoriteFonts = effectFavoriteFonts.filter(x => x !== f);
+    } else {
+        effectFavoriteFonts.push(f);
+    }
+    localStorage.setItem('shorts_fav_fonts', JSON.stringify(effectFavoriteFonts));
+    window.refreshEffectTextFontList();
+};
+
+window.fetchEffectLocalFonts = async () => {
+    try {
+        if (!window.queryLocalFonts) return;
+        const f = await window.queryLocalFonts();
+        effectLocalFonts = [...new Set(f.map(x => x.family))];
+        localStorage.setItem('shorts_local_fonts', JSON.stringify(effectLocalFonts));
+        window.refreshEffectTextFontList();
+        console.log("PC 글꼴 목록 동기화 완료");
+    } catch (err) {
+        console.error("Fetch local fonts failed:", err);
+    }
 };
