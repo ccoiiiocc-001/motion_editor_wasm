@@ -14,7 +14,7 @@
 // ============================================================================
 
 (function () {
-    const EDITOR_URL = './effect_editor/index.html?embed=1&v=20260620-fontfix';
+    const EDITOR_URL = './effect_editor/index.html?embed=1&v=20260620-fontfix-v2';
 
     const state = {
         modal: null,

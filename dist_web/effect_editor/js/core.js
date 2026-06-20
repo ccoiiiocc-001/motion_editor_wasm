@@ -2798,16 +2798,43 @@ window.refreshEffectTextFontList = function() {
         el.appendChild(syncItem);
     }
 
-    // 최신 로컬/즐겨찾기 상태 갱신
-    effectLocalFonts = JSON.parse(localStorage.getItem('shorts_local_fonts')) || [];
-    effectFavoriteFonts = JSON.parse(localStorage.getItem('shorts_fav_fonts')) || [];
+    // 최신 로컬/즐겨찾기 상태 갱신 및 문자열 타입 안전성 보장
+    let rawLocal = [];
+    try {
+        rawLocal = JSON.parse(localStorage.getItem('shorts_local_fonts')) || [];
+    } catch(e) {}
+    effectLocalFonts = rawLocal.map(x => {
+        if (!x) return '';
+        if (typeof x === 'object') return x.family || x.name || '';
+        return String(x);
+    }).filter(x => x !== '');
+
+    let rawFav = [];
+    try {
+        rawFav = JSON.parse(localStorage.getItem('shorts_fav_fonts')) || [];
+    } catch(e) {}
+    effectFavoriteFonts = rawFav.map(x => {
+        if (!x) return '';
+        if (typeof x === 'object') return x.family || x.name || '';
+        return String(x);
+    }).filter(x => x !== '');
 
     let all = [...effectGoogleFonts, ...effectLocalFonts];
+    all = all.map(x => {
+        if (!x) return '';
+        if (typeof x === 'object') return x.family || x.name || '';
+        return String(x);
+    }).filter(x => x !== '');
     all = [...new Set(all)];
+    
     all.sort((a, b) => {
         const aF = effectFavoriteFonts.includes(a), bF = effectFavoriteFonts.includes(b);
-        return aF && !bF ? -1 : !aF && bF ? 1 : a.localeCompare(b);
+        if (aF && !bF) return -1;
+        if (!aF && bF) return 1;
+        return String(a).localeCompare(String(b));
     });
+
+    console.log("Rendering font list. Total fonts:", all.length, all);
 
     const activeObject = window.canvas ? window.canvas.getActiveObject() : null;
     const currentFont = activeObject ? activeObject.fontFamily : 'Pretendard';
