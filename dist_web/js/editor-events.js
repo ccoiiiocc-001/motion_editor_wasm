@@ -2449,11 +2449,6 @@ if (fontBtn) {
         if (isOpening) {
             // 캐시된 폰트로 목록을 즉시 렌더링
             renderFontList('fontList', 'all');
-            
-            // 최초 1회만 자동 동기화 (아직 데이터가 비어있을 때만)
-            if (localFonts.length === 0 && window.queryLocalFonts) {
-                fetchLocalFonts();
-            }
         }
     };
 }

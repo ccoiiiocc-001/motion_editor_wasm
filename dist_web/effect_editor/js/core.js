@@ -2688,20 +2688,76 @@ window.applySubtitleProperty = function (key, value) {
             });
         }
 
-        // ── 폰트 선택 모달 토글 이벤트 바인딩 ──
+        // ── 폰트 선택 모달 드래그 및 토글 이벤트 바인딩 ──
+        let isDragging = false;
+        let startX, startY;
+        let offsetX = 0;
+        let offsetY = 0;
+
         const fontBtn = document.getElementById('propFontBtn');
         const fontModal = document.getElementById('effectFontModal');
+        const fontModalContent = document.getElementById('effectFontModalContent');
+        const fontModalHeader = document.getElementById('effectFontModalHeader');
         const modalCloseBtn = document.getElementById('effectFontModalCloseBtn');
+
+        if (fontModalHeader && fontModalContent) {
+            fontModalHeader.addEventListener('mousedown', function(e) {
+                if (e.target.id === 'effectFontModalCloseBtn') return;
+                isDragging = true;
+                startX = e.clientX - offsetX;
+                startY = e.clientY - offsetY;
+                fontModalHeader.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isDragging) return;
+                offsetX = e.clientX - startX;
+                offsetY = e.clientY - startY;
+                fontModalContent.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isDragging) {
+                    isDragging = false;
+                    fontModalHeader.style.cursor = 'move';
+                }
+            });
+
+            // 터치 이벤트 대응
+            fontModalHeader.addEventListener('touchstart', function(e) {
+                if (e.target.id === 'effectFontModalCloseBtn') return;
+                isDragging = true;
+                const touch = e.touches[0];
+                startX = touch.clientX - offsetX;
+                startY = touch.clientY - offsetY;
+            });
+
+            document.addEventListener('touchmove', function(e) {
+                if (!isDragging) return;
+                const touch = e.touches[0];
+                offsetX = touch.clientX - startX;
+                offsetY = touch.clientY - startY;
+                fontModalContent.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+            }, { passive: false });
+
+            document.addEventListener('touchend', function() {
+                isDragging = false;
+            });
+        }
+
         if (fontBtn && fontModal) {
             fontBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 fontModal.style.display = 'flex';
-                window.refreshEffectTextFontList();
-                // 최초 1회만 자동 동기화 (아직 데이터가 비어있을 때만)
-                const cachedLocal = JSON.parse(localStorage.getItem('shorts_local_fonts') || '[]');
-                if (cachedLocal.length === 0 && window.queryLocalFonts) {
-                    window.fetchEffectLocalFonts();
+                // 모달 열 때 드래그 위치 초기화
+                offsetX = 0;
+                offsetY = 0;
+                if (fontModalContent) {
+                    fontModalContent.style.transform = 'translate(-50%, -50%)';
                 }
+                window.refreshEffectTextFontList();
+                // 자동 동기화 경고 알림 방지를 위해, 모달을 열 때 queryLocalFonts를 자동 실행하지 않음
             });
         }
         if (modalCloseBtn && fontModal) {
@@ -2733,13 +2789,7 @@ window.refreshEffectTextFontList = function() {
     if (window.queryLocalFonts) {
         const syncItem = document.createElement('div');
         syncItem.className = 'font-item';
-        syncItem.style.background = '#0e3a40';
-        syncItem.style.borderBottom = '1px solid #115e59';
-        syncItem.style.justifyContent = 'center';
-        syncItem.style.fontWeight = 'bold';
-        syncItem.style.color = '#00bcd4';
-        syncItem.style.fontSize = '11px';
-        syncItem.style.cursor = 'pointer';
+        syncItem.style.cssText = "display: flex !important; justify-content: center !important; align-items: center !important; width: 100% !important; box-sizing: border-box !important; padding: 8px 12px !important; border-bottom: 1px solid #115e59 !important; cursor: pointer !important; background: #0e3a40 !important; font-weight: bold !important; color: #00bcd4 !important; font-size: 11px !important; text-align: center !important;";
         syncItem.innerHTML = '🔄 PC 글꼴 가져오기 / 동기화';
         syncItem.onclick = async (e) => {
             e.stopPropagation();
@@ -2767,12 +2817,26 @@ window.refreshEffectTextFontList = function() {
         const isS = (f === currentFont || (currentFont && currentFont.indexOf(f) === 0));
         const isF = effectFavoriteFonts.includes(f);
         i.className = `font-item ${isS ? 'selected' : ''}`;
+        i.style.cssText = `
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 8px 12px !important;
+            border-bottom: 1px solid #333 !important;
+            cursor: pointer !important;
+            background: ${isS ? '#115e59' : 'transparent'} !important;
+            border-left: ${isS ? '3px solid #00bcd4' : 'none'} !important;
+            text-align: left !important;
+        `;
         i.innerHTML = `
-            <div class="font-info" style="flex:1; overflow:hidden; text-align:left; display:block;">
-                <div class="font-name" style="font-size:9px; color:#888; margin-bottom:2px; text-align:left; display:block;">${f}</div>
-                <div class="font-preview" style="font-family:'${f}', sans-serif; font-size:13px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; display:block;">가나다 ABC</div>
+            <div class="font-info" style="flex: 1 !important; min-width: 0 !important; overflow: hidden !important; text-align: left !important; display: block !important; visibility: visible !important; opacity: 1 !important;">
+                <div class="font-name" style="font-size: 10px !important; color: #aaa !important; margin-bottom: 2px !important; text-align: left !important; display: block !important; visibility: visible !important; opacity: 1 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;">${f}</div>
+                <div class="font-preview" style="font-family: '${f}', sans-serif !important; font-size: 14px !important; color: #fff !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; text-align: left !important; display: block !important; visibility: visible !important; opacity: 1 !important;">가나다 ABC</div>
             </div>
-            <button class="star-fav ${isF ? 'active' : ''}" style="font-size:15px; color:${isF ? '#f59e0b' : '#555'}; cursor:pointer; padding:0 4px; border:none; background:none; outline:none; display:inline-block;">★</button>
+            <button class="star-fav ${isF ? 'active' : ''}" style="font-size: 16px !important; color: ${isF ? '#f59e0b' : '#555'} !important; cursor: pointer !important; padding: 0 4px !important; border: none !important; background: none !important; outline: none !important; display: inline-block !important; visibility: visible !important; opacity: 1 !important; flex-shrink: 0 !important; margin-left: 8px !important;">★</button>
         `;
         
         // 글꼴 클릭 시 적용
