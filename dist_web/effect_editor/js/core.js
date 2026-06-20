@@ -2763,11 +2763,11 @@ window.refreshEffectTextFontList = function() {
         const isF = effectFavoriteFonts.includes(f);
         i.className = `font-item ${isS ? 'selected' : ''}`;
         i.innerHTML = `
-            <div class="font-info">
-                <div class="font-name">${f}</div>
-                <div class="font-preview" style="font-family:'${f}', sans-serif;">가나다 ABC</div>
+            <div class="font-info" style="flex:1; overflow:hidden; text-align:left; display:block;">
+                <div class="font-name" style="font-size:9px; color:#888; margin-bottom:2px; text-align:left; display:block;">${f}</div>
+                <div class="font-preview" style="font-family:'${f}', sans-serif; font-size:13px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; display:block;">가나다 ABC</div>
             </div>
-            <button class="star-fav ${isF ? 'active' : ''}">★</button>
+            <button class="star-fav ${isF ? 'active' : ''}" style="font-size:15px; color:${isF ? '#f59e0b' : '#555'}; cursor:pointer; padding:0 4px; border:none; background:none; outline:none; display:inline-block;">★</button>
         `;
         
         // 글꼴 클릭 시 적용

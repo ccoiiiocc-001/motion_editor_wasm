@@ -14,7 +14,7 @@
 // ============================================================================
 
 (function () {
-    const EDITOR_URL = './effect_editor/index.html?embed=1&v=20260615-retro21';
+    const EDITOR_URL = './effect_editor/index.html?embed=1&v=20260620-fontfix';
 
     const state = {
         modal: null,
