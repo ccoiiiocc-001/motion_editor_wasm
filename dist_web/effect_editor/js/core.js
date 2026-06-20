@@ -2822,21 +2822,22 @@ window.refreshEffectTextFontList = function() {
             flex-direction: row !important;
             justify-content: space-between !important;
             align-items: center !important;
+            align-self: stretch !important;
             width: 100% !important;
             box-sizing: border-box !important;
             padding: 8px 12px !important;
-            border-bottom: 1px solid #333 !important;
+            border-bottom: 1px solid #e2e8f0 !important;
             cursor: pointer !important;
-            background: ${isS ? '#115e59' : 'transparent'} !important;
-            border-left: ${isS ? '3px solid #00bcd4' : 'none'} !important;
+            background: ${isS ? '#dbeafe' : 'transparent'} !important;
+            border-left: ${isS ? '3px solid #2563eb' : 'none'} !important;
             text-align: left !important;
         `;
         i.innerHTML = `
-            <div class="font-info" style="flex: 1 !important; min-width: 0 !important; overflow: hidden !important; text-align: left !important; display: block !important; visibility: visible !important; opacity: 1 !important;">
-                <div class="font-name" style="font-size: 10px !important; color: #aaa !important; margin-bottom: 2px !important; text-align: left !important; display: block !important; visibility: visible !important; opacity: 1 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;">${f}</div>
-                <div class="font-preview" style="font-family: '${f}', sans-serif !important; font-size: 14px !important; color: #fff !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; text-align: left !important; display: block !important; visibility: visible !important; opacity: 1 !important;">가나다 ABC</div>
+            <div class="font-info" style="flex: 1 !important; min-width: 0 !important; overflow: hidden !important; text-align: left !important; display: block !important; visibility: visible !important; opacity: 1 !important; background: transparent !important;">
+                <div class="font-name" style="font-size: 10px !important; color: #64748b !important; margin-bottom: 2px !important; text-align: left !important; display: block !important; visibility: visible !important; opacity: 1 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; background: transparent !important;">${f}</div>
+                <div class="font-preview" style="font-family: '${f}', sans-serif !important; font-size: 14px !important; color: #1e293b !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; text-align: left !important; display: block !important; visibility: visible !important; opacity: 1 !important; background: transparent !important;">가나다 ABC</div>
             </div>
-            <button class="star-fav ${isF ? 'active' : ''}" style="font-size: 16px !important; color: ${isF ? '#f59e0b' : '#555'} !important; cursor: pointer !important; padding: 0 4px !important; border: none !important; background: none !important; outline: none !important; display: inline-block !important; visibility: visible !important; opacity: 1 !important; flex-shrink: 0 !important; margin-left: 8px !important;">★</button>
+            <button class="star-fav ${isF ? 'active' : ''}" style="font-size: 16px !important; color: ${isF ? '#f59e0b' : '#cbd5e1'} !important; cursor: pointer !important; padding: 0 4px !important; border: none !important; background: none !important; outline: none !important; display: inline-block !important; visibility: visible !important; opacity: 1 !important; flex-shrink: 0 !important; margin-left: 8px !important;">★</button>
         `;
         
         // 글꼴 클릭 시 적용
