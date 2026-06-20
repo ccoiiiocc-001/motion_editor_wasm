@@ -2688,27 +2688,32 @@ window.applySubtitleProperty = function (key, value) {
             });
         }
 
-        // ── 폰트 선택 드롭다운 버튼 토글 이벤트 바인딩 ──
+        // ── 폰트 선택 모달 토글 이벤트 바인딩 ──
         const fontBtn = document.getElementById('propFontBtn');
-        const fontList = document.getElementById('propFontList');
-        if (fontBtn && fontList) {
+        const fontModal = document.getElementById('effectFontModal');
+        const modalCloseBtn = document.getElementById('effectFontModalCloseBtn');
+        if (fontBtn && fontModal) {
             fontBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                fontList.classList.toggle('hidden');
-                if (!fontList.classList.contains('hidden')) {
-                    window.refreshEffectTextFontList();
-                    // 최초 1회만 자동 동기화 (아직 데이터가 비어있을 때만)
-                    const cachedLocal = JSON.parse(localStorage.getItem('shorts_local_fonts') || '[]');
-                    if (cachedLocal.length === 0 && window.queryLocalFonts) {
-                        window.fetchEffectLocalFonts();
-                    }
+                fontModal.style.display = 'flex';
+                window.refreshEffectTextFontList();
+                // 최초 1회만 자동 동기화 (아직 데이터가 비어있을 때만)
+                const cachedLocal = JSON.parse(localStorage.getItem('shorts_local_fonts') || '[]');
+                if (cachedLocal.length === 0 && window.queryLocalFonts) {
+                    window.fetchEffectLocalFonts();
                 }
+            });
+        }
+        if (modalCloseBtn && fontModal) {
+            modalCloseBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                fontModal.style.display = 'none';
             });
         }
 
         document.addEventListener('click', function(e) {
-            if (fontList && !fontList.contains(e.target) && e.target !== fontBtn && !fontBtn?.contains(e.target)) {
-                fontList.classList.add('hidden');
+            if (fontModal && fontModal.style.display === 'flex' && e.target === fontModal) {
+                fontModal.style.display = 'none';
             }
         });
     }, 500);
@@ -2720,7 +2725,7 @@ let effectLocalFonts = JSON.parse(localStorage.getItem('shorts_local_fonts')) ||
 let effectFavoriteFonts = JSON.parse(localStorage.getItem('shorts_fav_fonts')) || [];
 
 window.refreshEffectTextFontList = function() {
-    const el = document.getElementById('propFontList');
+    const el = document.getElementById('propFontListModal');
     if (!el) return;
     el.innerHTML = '';
 
@@ -2796,8 +2801,8 @@ window.applyEffectTextFont = function (n) {
     window.applySubtitleProperty('fontFamily', n);
     const label = document.getElementById('propFontLabel');
     if (label) label.textContent = n;
-    const list = document.getElementById('propFontList');
-    if (list) list.classList.add('hidden');
+    const modal = document.getElementById('effectFontModal');
+    if (modal) modal.style.display = 'none';
     
     document.fonts.load(`10px "${n}"`).then(() => {
         if (window.canvas) window.canvas.requestRenderAll();
