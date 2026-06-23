@@ -197,6 +197,12 @@ document.getElementById('bg-color-picker').addEventListener('input', (e) => {
     canvas.backgroundColor = e.target.value;
     canvas.renderAll();
 });
+document.getElementById('bg-white-btn').addEventListener('click', () => {
+    canvas.backgroundColor = '#ffffff';
+    canvas.renderAll();
+    const picker = document.getElementById('bg-color-picker');
+    if (picker) picker.value = '#ffffff';
+});
 // [새 기능] 배경을 투명하게 만드는 로직 (아래 4줄을 복사해서 추가해 주세요)
 document.getElementById('bg-transparent-btn').addEventListener('click', () => {
     canvas.backgroundColor = null; // 캔버스의 배경색 데이터를 완전히 삭제 (투명화)

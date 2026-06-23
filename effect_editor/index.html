@@ -26,7 +26,7 @@
             </label>
             <div id="detail-dims-wrap" style="display:none; align-items:center; gap:4px; margin-left:0px;">
                 <input type="number" id="detail-width" value="900" min="200" max="3000" style="width:70px; padding:0; font-size:10px; background:#333; color:#fff; border:1px solid #555; border-radius:3px; outline:none; text-align:center;">x
-				<input type="number" id="detail-height" value="2000" min="200" max="30000" style="width:70px; padding:0; font-size:10px; background:#333; color:#fff; border:1px solid #555; border-radius:3px; outline:none; text-align:center;"> <button type="button" id="detail-height-add" style="padding:0; font-size:0.8em; background:#4caf50; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold; white-space:nowrap;">+500</button>
+				<input type="number" id="detail-height" value="2000" min="200" max="30000" style="width:70px; padding:0; font-size:10px; background:#333; color:#fff; border:1px solid #555; border-radius:3px; outline:none; text-align:center;"> <button type="button" id="detail-height-add" style="background:#4caf50; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold; white-space:nowrap;">+500</button>
             </div>
             
             <select id="img-load-option" style="margin-bottom: 5px; width: 100%;">
@@ -70,16 +70,10 @@
 			
 			<div class="bg-color-block">
 				<div class="bg-color-row">
-					<label class="bg-color-label" for="bg-color-open-btn">배경:</label>
-					<button type="button" id="bg-color-open-btn" class="bg-color-swatch-btn" title="색상 선택" aria-expanded="false" aria-controls="bg-color-popover"></button>
+					<label class="bg-color-label" for="bg-color-picker">배경:</label>
+					<input type="color" id="bg-color-picker" value="#ffffff" class="bg-color-picker-input" title="색상 선택">
+					<button type="button" id="bg-white-btn" class="bg-white-btn">흰색</button>
 					<button type="button" id="bg-transparent-btn" class="bg-transparent-btn">투명</button>
-				</div>
-				<div id="bg-color-popover" class="bg-color-popover" hidden>
-					<div id="bg-sv-plane" class="bg-sv-plane" title="채도·명도 선택">
-						<div id="bg-sv-cursor" class="bg-sv-cursor"></div>
-					</div>
-					<input type="range" id="bg-hue-slider" class="bg-hue-slider" min="0" max="360" value="0" step="1" title="색상(Hue)">
-					<span id="bg-color-hex" class="bg-color-hex">#FFFFFF</span>
 				</div>
 			</div>
             
@@ -167,6 +161,24 @@
         </div>
 
         <aside class="filter-panel">
+            <!-- 공통 객체 속성 (투명도 / 회전각도) - 1줄 초압축 카드 -->
+            <div id="common-properties-panel" style="background:#2a2a2a; border:1px solid #444; border-radius:6px; padding:8px 12px; margin-bottom:12px; display:flex; gap:12px; align-items:center;">
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                        <label style="font-size:11px; color:#ccc; margin:0; font-weight:bold;">투명도</label>
+                        <input type="text" id="commonOpacityNum" value="100" style="width:39px; padding:2px; font-size:10px; text-align:center; background:#333; color:#fff; border:1px solid #555; border-radius:3px; outline:none;" disabled>
+                    </div>
+                    <input type="range" id="commonOpacity" min="10" max="100" value="100" style="width:100%; accent-color:#00bcd4; cursor:pointer; margin:0;" disabled>
+                </div>
+                <div style="flex:1; min-width:0; border-left:1px solid #444; padding-left:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                        <label style="font-size:11px; color:#ccc; margin:0; font-weight:bold;">회전</label>
+                        <input type="text" id="commonAngleNum" value="0" style="width:39px; padding:2px; font-size:10px; text-align:center; background:#333; color:#fff; border:1px solid #555; border-radius:3px; outline:none;" disabled>
+                    </div>
+                    <input type="range" id="commonAngle" min="0" max="360" value="0" style="width:100%; accent-color:#00bcd4; cursor:pointer; margin:0;" disabled>
+                </div>
+            </div>
+
             <div id="subtitle-preset-panel" style="display: none;">
                 <h4 class="filter-panel-title">📝 자막 프리셋</h4>
                 <p class="filter-panel-hint">메인 편집기에서 저장한 프리셋을 불러옵니다.</p>
@@ -174,28 +186,6 @@
                     <option value="">프리셋 선택…</option>
                 </select>
                 <button type="button" id="effect-load-preset-btn" style="margin-top:8px;background:#2563eb;">프리셋 적용</button>
-            </div>
-            
-            <div id="image-properties-panel" style="display: none; background:#2a2a2a; border:1px solid #444; border-radius:6px; padding:12px; margin-bottom:15px;">
-                <h4 style="margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 14px; color: #ff9800;">
-                    🖼️ 이미지 레이어 속성
-                </h4>
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <div class="prop-group">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                            <label style="font-size:12px; color:#ccc; margin:0;">투명도</label>
-                            <input type="number" id="propImageOpacityNum" min="10" max="100" value="100" style="width:50px; padding:4px; font-size:11px; text-align:center; outline:none;">
-                        </div>
-                        <input type="range" id="propImageOpacity" min="10" max="100" value="100" style="width:100%; accent-color:#ff9800; cursor:pointer;">
-                    </div>
-                    <div class="prop-group">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                            <label style="font-size:12px; color:#ccc; margin:0;">회전 각도</label>
-                            <input type="number" id="propImageAngleNum" min="0" max="360" value="0" style="width:50px; padding:4px; font-size:11px; text-align:center; outline:none;">
-                        </div>
-                        <input type="range" id="propImageAngle" min="0" max="360" value="0" style="width:100%; accent-color:#ff9800; cursor:pointer;">
-                    </div>
-                </div>
             </div>
 
             <div id="filter-settings-panel" style="display: none;">
@@ -221,11 +211,9 @@
                         <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">글꼴</label>
                         <div style="position:relative; width:100%;">
                             <button type="button" id="propFontBtn"
-                              style="width:100%; padding:6px 10px; border:1px solid #00bcd4; border-radius:6px; background:#333; color:#00bcd4; text-align:left; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:12px; font-weight:bold; height:28px; box-sizing:border-box; outline:none;">
-                              <span id="propFontLabel" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Pretendard</span>
-                              <svg style="width:14px; height:14px; flex-shrink:0;" fill="none" stroke="#00bcd4" viewBox="0 0 24 24">
-                                <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                              </svg>
+                              style="width:100%; padding:6px 10px; border:1px solid #00bcd4; border-radius:6px; background:#333; color:#00bcd4; text-align:center; display:flex; justify-content:center; align-items:center; cursor:pointer; font-size:12px; font-weight:bold; height:28px; box-sizing:border-box; outline:none;">
+                              <span>글꼴 선택</span>
+                              <span id="propFontLabel" style="display:none;">Pretendard</span>
                             </button>
                             <!-- 폰트 선택 리스트가 모달창으로 대체되었습니다. -->
                         </div>
@@ -254,7 +242,7 @@
                     </div>
 
                     <div class="prop-group">
-                        <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">그림자 효과 (거리 / 번짐 / 색상)</label>
+                        <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">그림자효과(거리/번짐/색상)</label>
                         <div style="display:flex; gap:6px;">
                             <input type="number" id="propShadowOffset" min="-100" max="100" value="0" title="그림자 거리" style="flex:1; width:0; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; text-align:center; outline:none;">
                             <input type="number" id="propShadowBlur" min="0" max="100" value="0" title="그림자 번짐" style="flex:1; width:0; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; text-align:center; outline:none;">
@@ -273,53 +261,39 @@
                         </div>
                     </div>
 
-                    <div style="display:flex; gap:8px;">
-                        <div class="prop-group" style="flex:1;">
-                            <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">정렬</label>
-                            <div style="display:flex; gap:4px;">
-                                <button type="button" id="alignLeftBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-weight:bold;" title="왼쪽 정렬">왼쪽</button>
-                                <button type="button" id="alignCenterBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-weight:bold;" title="가운데 정렬">가운데</button>
-                                <button type="button" id="alignRightBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-weight:bold;" title="오른쪽 정렬">오른쪽</button>
-                            </div>
-                        </div>
-                        <div class="prop-group" style="flex:1;">
-                            <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">스타일</label>
-                            <div style="display:flex; gap:4px;">
-                                <button type="button" id="fontNormalBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-weight:normal;" title="Normal">N</button>
-                                <button type="button" id="fontBoldBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-weight:bold;" title="Bold">B</button>
-                                <button type="button" id="fontItalicBtn" style="flex:1; padding:6px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-size:11px; cursor:pointer; font-style:italic;" title="Italic">I</button>
-                            </div>
+                    <div class="prop-group">
+                        <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px; font-weight:bold;">정렬</label>
+                        <div style="display:flex; border:1px solid #555; border-radius:4px; overflow:hidden; background:#333;">
+                            <button type="button" id="alignLeftBtn" style="flex:1; border:none; background:transparent; color:#fff; padding:6px 0; font-size:11px; cursor:pointer;" title="왼쪽 정렬">왼쪽</button>
+                            <button type="button" id="alignCenterBtn" style="flex:1; border-left:1px solid #555; border-right:1px solid #555; background:transparent; color:#fff; padding:6px 0; font-size:11px; cursor:pointer;" title="가운데 정렬">가운데</button>
+                            <button type="button" id="alignRightBtn" style="flex:1; border:none; background:transparent; color:#fff; padding:6px 0; font-size:11px; cursor:pointer;" title="오른쪽 정렬">오른쪽</button>
                         </div>
                     </div>
 
-                    <!-- 투명도 및 회전 -->
-                    <div style="display:flex; gap:8px;">
-                        <div class="prop-group" style="flex:1;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                                <label style="font-size:11px; color:#ccc; margin:0;">투명도</label>
-                                <input type="number" id="propTextOpacityNum" min="10" max="100" value="100" style="width:40px; padding:2px; font-size:10px; text-align:center;">
-                            </div>
-                            <input type="range" id="propTextOpacity" min="10" max="100" value="100" style="width:100%; accent-color:#00bcd4; cursor:pointer;">
-                        </div>
-                        <div class="prop-group" style="flex:1;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                                <label style="font-size:11px; color:#ccc; margin:0;">회전 각도</label>
-                                <input type="number" id="propTextAngleNum" min="0" max="360" value="0" style="width:40px; padding:2px; font-size:10px; text-align:center;">
-                            </div>
-                            <input type="range" id="propTextAngle" min="0" max="360" value="0" style="width:100%; accent-color:#00bcd4; cursor:pointer;">
+                    <div class="prop-group">
+                        <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px; font-weight:bold;">스타일</label>
+                        <div style="display:flex; border:1px solid #555; border-radius:4px; overflow:hidden; background:#333;">
+                            <button type="button" id="fontNormalBtn" style="flex:1; border:none; background:transparent; color:#fff; padding:6px 0; font-size:11px; font-weight:normal;" title="Normal">N</button>
+                            <button type="button" id="fontBoldBtn" style="flex:1; border-left:1px solid #555; border-right:1px solid #555; background:transparent; color:#fff; padding:6px 0; font-size:11px; font-weight:bold;" title="Bold">B</button>
+                            <button type="button" id="fontItalicBtn" style="flex:1; border:none; background:transparent; color:#fff; padding:6px 0; font-size:11px; font-style:italic;" title="Italic">I</button>
                         </div>
                     </div>
+
+
 
                     <!-- 자막 프리셋 관리 -->
                     <div class="prop-group" style="border-top: 1px solid #444; padding-top: 10px; margin-top: 5px;">
-                        <label style="font-size:11px; color:#00bcd4; display:block; margin-bottom:6px; font-weight:bold;">✨ 자막 스타일 프리셋 (메인 공유)</label>
-                        <select id="propTextPresetSelect" style="width:100%; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; outline:none; margin-bottom:6px;">
-                            <option value="">프리셋 선택...</option>
-                        </select>
+                        <label style="font-size:11px; color:#00bcd4; display:block; margin-bottom:6px; font-weight:bold;">✨ 자막 프리셋 (메인 공유)</label>
+                        <div style="display:flex; gap:4px; margin-bottom:6px;">
+                            <input type="text" id="propTextPresetNameInput" placeholder="프리셋 이름..." style="flex:1; min-width:0; padding:6px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:11px; outline:none; box-sizing:border-box;">
+                            <button type="button" id="propTextPresetSaveBtn" style="width:25%; flex-shrink:0; padding:4px; background:#4caf50; border:none; border-radius:4px; color:#fff; font-size:11px; font-weight:bold; cursor:pointer;">저장</button>
+                        </div>
                         <div style="display:flex; gap:4px;">
-                            <button type="button" id="propTextPresetLoadBtn" style="flex:1.2; padding:6px; background:#00bcd4; border:none; border-radius:4px; color:#000; font-size:11px; font-weight:bold; cursor:pointer;">적용</button>
-                            <button type="button" id="propTextPresetSaveBtn" style="flex:1.2; padding:6px; background:#4caf50; border:none; border-radius:4px; color:#fff; font-size:11px; font-weight:bold; cursor:pointer;">현재 저장</button>
-                            <button type="button" id="propTextPresetDeleteBtn" style="flex:0.8; padding:6px; background:#d32f2f; border:none; border-radius:4px; color:#fff; font-size:11px; font-weight:bold; cursor:pointer;">삭제</button>
+                            <select id="propTextPresetSelect" style="width:50%; flex-shrink:0; padding:4px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:11px; outline:none; box-sizing:border-box; appearance:none; -webkit-appearance:none; -moz-appearance:none; text-align:center; text-align-last:center;">
+                                <option value="">프리셋선택</option>
+                            </select>
+                            <button type="button" id="propTextPresetLoadBtn" style="width:25%; flex-shrink:0; padding:4px; background:#00bcd4; border:none; border-radius:4px; color:#000; font-size:11px; font-weight:bold; cursor:pointer;">적용</button>
+                            <button type="button" id="propTextPresetDeleteBtn" style="width:25%; flex-shrink:0; padding:4px; background:#d32f2f; border:none; border-radius:4px; color:#fff; font-size:11px; font-weight:bold; cursor:pointer;">삭제</button>
                         </div>
                     </div>
                 </div>
@@ -413,18 +387,6 @@
         </div>
     </div>
 
-    <!-- 글꼴 선택 모달창 -->
-    <div id="effectFontModal" class="modal-overlay" style="display:none;" aria-modal="true" role="dialog">
-        <div id="effectFontModalContent" style="position:absolute; left:50%; top:50%; transform:translate(-50%, -50%); width:400px; max-width:90%; max-height:85vh; background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,0.15); padding:16px; box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden;">
-            <div id="effectFontModalHeader" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #e2e8f0; padding-bottom:8px; cursor:move; user-select:none;">
-                <div style="font-size:15px; font-weight:bold; color:#1e293b; pointer-events:none;">🔤 글꼴 선택</div>
-                <button type="button" id="effectFontModalCloseBtn" style="width:auto; padding:4px 8px; background:#e2e8f0; color:#475569; border:1px solid #cbd5e1; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold; pointer-events:auto;">닫기</button>
-            </div>
-            <!-- 글꼴 리스트 영역 -->
-            <div id="propFontListModal" style="flex:1; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:4px;"></div>
-        </div>
-    </div>
-
     <script src="../vendor/fabric.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/MotionPathPlugin.min.js"></script>
@@ -439,5 +401,6 @@
     <script src="./js/image-crop-upscale.js?v=20260620-fontfix-v2"></script>
     <script src="./js/embed-bridge.js?v=20260620-fontfix-v2"></script>
     <script src="./js/detail-bake.js?v=20260620-fontfix-v2"></script>
+    <script src="./js/effect-subtitle-font.js?v=20260620-fontfix-v2"></script>
 </body>
 </html>
