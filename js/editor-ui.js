@@ -135,7 +135,7 @@ window.canvas = canvas;
 fabric.Object.prototype.set({ transparentCorners: false, cornerStyle: 'circle', cornerSize: 20, touchCornerSize: 32, padding: 8, borderColor: '#ff66cc', cornerColor: '#ff99dd', cornerStrokeColor: '#ffffff' });
 if (fabric.IText) { fabric.IText.prototype.set({ paintFirst: 'stroke', strokeLineJoin: 'round', strokeLineCap: 'round', strokeMiterLimit: 2, strokeUniform: true }); }
 window.stepInput = function(id, val) { const el = document.getElementById(id); if (el) { el.value = parseFloat(el.value || 0) + val; el.dispatchEvent(new Event('input')); } };
-let subtitleCount = 1;
+window.subtitleCount = 1;
 let drawCount = 1;
 let subtitlePresets = JSON.parse(localStorage.getItem('subtitlePresets')) || {};
 window.pendingMove = null;
@@ -347,6 +347,10 @@ window.updatePropertyPanel = function(customObj) {
     propTrackIndex.value = (obj.trackType || 'overlay') + '_' + (obj.trackIndex || 0);
     propOpacity.value = Math.round((obj.baseOpacity !== undefined ? obj.baseOpacity : (obj.opacity || 1)) * 100);
     propAngle.value = Math.round(obj.baseAngle !== undefined ? obj.baseAngle : (obj.angle || 0));
+    const _propOpacityNum = document.getElementById('propOpacityNum');
+    const _propAngleNum = document.getElementById('propAngleNum');
+    if (_propOpacityNum) _propOpacityNum.value = propOpacity.value;
+    if (_propAngleNum) _propAngleNum.value = propAngle.value;
     propScaleX.value = Math.round((obj.baseScaleX !== undefined ? obj.baseScaleX : (obj.scaleX || 1)) * 100);
     propScaleY.value = Math.round((obj.baseScaleY !== undefined ? obj.baseScaleY : (obj.scaleY || 1)) * 100);
     if (propScale) propScale.value = Math.round((obj.baseScaleX !== undefined ? obj.baseScaleX : (obj.scaleX || 1)) * 100);
@@ -391,7 +395,24 @@ window.updatePropertyPanel = function(customObj) {
         }
     }
 };
-function updateObj(key, val, isScale = false) { const obj = canvas.getActiveObject(); if (obj) { const finalVal = isScale ? val / 100 : val; obj.set(key, finalVal); if (key === 'opacity') obj.set('baseOpacity', finalVal); if (key === 'scaleX') obj.set('baseScaleX', finalVal); if (key === 'scaleY') obj.set('baseScaleY', finalVal); if (key === 'angle') obj.set('baseAngle', finalVal); canvas.requestRenderAll(); } }
+function updateObj(key, val, isScale = false) {
+    const obj = canvas.getActiveObject();
+    if (obj) {
+        const finalVal = isScale ? val / 100 : val;
+        if (obj.type === 'i-text' && obj.isEditing) {
+            const styles = {};
+            styles[key] = finalVal;
+            obj.setSelectionStyles(styles);
+        } else {
+            obj.set(key, finalVal);
+            if (key === 'opacity') obj.set('baseOpacity', finalVal);
+            if (key === 'scaleX') obj.set('baseScaleX', finalVal);
+            if (key === 'scaleY') obj.set('baseScaleY', finalVal);
+            if (key === 'angle') obj.set('baseAngle', finalVal);
+        }
+        canvas.requestRenderAll();
+    }
+}
 function updateShadow() { 
     const obj = canvas.getActiveObject(); 
     if (obj && obj.type === 'i-text') { 
@@ -466,7 +487,20 @@ window.resetClipData = function(obj) {
     if (obj.type !== 'audio') canvas.requestRenderAll();
 };
 function refreshPresetList() {
-    if (presetSelect) { presetSelect.innerHTML = ''; for (const key in subtitlePresets) { const opt = document.createElement('option'); opt.value = key; opt.textContent = key; presetSelect.appendChild(opt); } }
+    try {
+        subtitlePresets = JSON.parse(localStorage.getItem('subtitlePresets')) || {};
+    } catch (e) {
+        subtitlePresets = {};
+    }
+    if (presetSelect) {
+        presetSelect.innerHTML = '';
+        for (const key in subtitlePresets) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = key;
+            presetSelect.appendChild(opt);
+        }
+    }
     if (clipPresetSelect && db) {
         clipPresetSelect.innerHTML = '';
         const transaction = db.transaction(["clips"], "readonly");
@@ -474,6 +508,12 @@ function refreshPresetList() {
         objectStore.openCursor().onsuccess = function(event) { const cursor = event.target.result; if (cursor) { const opt = document.createElement('option'); opt.value = cursor.value.name; opt.textContent = cursor.value.name; clipPresetSelect.appendChild(opt); cursor.continue(); } };
     }
 }
+
+window.addEventListener('storage', (e) => {
+    if (e.key === 'subtitlePresets') {
+        refreshPresetList();
+    }
+});
 
 // ?댁긽??寃??諛?寃쎄퀬 ?앹뾽 由ъ뒪??(臾쇰━ 紐⑤땲???섎뱶?⑥뼱 ?댁긽??湲곗?)
 function checkResolution() {

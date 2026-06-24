@@ -1328,8 +1328,29 @@ canvas.on('selection:created', () => window.updatePropertyPanel());
 canvas.on('selection:updated', () => window.updatePropertyPanel());
 canvas.on('selection:cleared', () => { if (subtitleTextInput) subtitleTextInput.value = ''; window.updatePropertyPanel(); });
 canvas.on('object:modified', e => { const obj = e.target; if (obj) { obj.baseLeft = obj.left; obj.baseTop = obj.top; obj.baseScaleX = obj.scaleX; obj.baseScaleY = obj.scaleY; obj.baseAngle = obj.angle; window.updatePropertyPanel(obj); window.saveHistorySnapshot(); } });
-if (propOpacity) propOpacity.oninput = () => updateObj('opacity', propOpacity.value, true);
-if (propAngle) propAngle.oninput = () => updateObj('angle', parseInt(propAngle.value));
+const propOpacityNum = document.getElementById('propOpacityNum');
+const propAngleNum = document.getElementById('propAngleNum');
+if (propOpacity) propOpacity.oninput = () => {
+    updateObj('opacity', propOpacity.value, true);
+    if (propOpacityNum) propOpacityNum.value = propOpacity.value;
+};
+if (propOpacityNum) propOpacityNum.oninput = () => {
+    const v = Math.max(0, Math.min(100, parseInt(propOpacityNum.value) || 0));
+    propOpacityNum.value = v;
+    if (propOpacity) propOpacity.value = v;
+    updateObj('opacity', v, true);
+};
+if (propAngle) propAngle.oninput = () => {
+    updateObj('angle', parseInt(propAngle.value));
+    if (propAngleNum) propAngleNum.value = propAngle.value;
+};
+if (propAngleNum) propAngleNum.oninput = () => {
+    const v = Math.max(-180, Math.min(180, parseInt(propAngleNum.value) || 0));
+    propAngleNum.value = v;
+    if (propAngle) propAngle.value = v;
+    updateObj('angle', v);
+};
+
 if (propScale) { propScale.oninput = () => { updateObj('scaleX', propScale.value, true); updateObj('scaleY', propScale.value, true); propScaleX.value = propScale.value; propScaleY.value = propScale.value; }; }
 if (propScaleX) propScaleX.oninput = () => updateObj('scaleX', propScaleX.value, true);
 if (propScaleY) propScaleY.oninput = () => updateObj('scaleY', propScaleY.value, true);
@@ -1345,7 +1366,7 @@ if (shadowBlur) shadowBlur.oninput = updateShadow;
 if (shadowColor) shadowColor.oninput = updateShadow;
 if (propVolume) { propVolume.oninput = () => { const target = canvas.getActiveObject() || window.lastSelectedObj; if (target) { const vol = Math.max(0, Math.min(1, propVolume.value / 100)); target.baseVolume = vol; if (target.isVideo && target.getElement()) { target.getElement().volume = vol; } else if (target.audio) { target.audio.volume = vol; } } }; }
 
-const snapshotInputs = [propOpacity, propAngle, propScale, propScaleX, propScaleY, propFill, propFontSize, propStrokeWidth, propStroke, propCharSpacing, propLineHeight, subtitleTextInput, shadowOffset, shadowBlur, shadowColor, propVolume];
+const snapshotInputs = [propOpacity, propOpacityNum, propAngle, propAngleNum, propScale, propScaleX, propScaleY, propFill, propFontSize, propStrokeWidth, propStroke, propCharSpacing, propLineHeight, subtitleTextInput, shadowOffset, shadowBlur, shadowColor, propVolume];
 snapshotInputs.forEach(el => { if (el) el.addEventListener('change', () => { if (typeof window.saveHistorySnapshot === 'function') window.saveHistorySnapshot(); }); });
 if (propTrackIndex) {
     propTrackIndex.onchange = () => {
@@ -1517,11 +1538,189 @@ if (alignRightBtn) { alignRightBtn.onclick = () => { const obj = canvas.getActiv
 const fontNormalBtn = document.getElementById('fontNormalBtn');
 const fontBoldBtn = document.getElementById('fontBoldBtn');
 const fontItalicBtn = document.getElementById('fontItalicBtn');
-if (fontNormalBtn) { fontNormalBtn.onclick = () => { const obj = canvas.getActiveObject(); if (obj && obj.type === 'i-text') { window.saveHistorySnapshot(); obj.set({ fontWeight: 'normal', fontStyle: 'normal' }); canvas.requestRenderAll(); if (window.updatePropertyPanel) window.updatePropertyPanel(obj); } }; }
-if (fontBoldBtn) { fontBoldBtn.onclick = () => { const obj = canvas.getActiveObject(); if (obj && obj.type === 'i-text') { window.saveHistorySnapshot(); obj.set({ fontWeight: obj.fontWeight === 'bold' ? 'normal' : 'bold' }); canvas.requestRenderAll(); if (window.updatePropertyPanel) window.updatePropertyPanel(obj); } }; }
-if (fontItalicBtn) { fontItalicBtn.onclick = () => { const obj = canvas.getActiveObject(); if (obj && obj.type === 'i-text') { window.saveHistorySnapshot(); obj.set({ fontStyle: obj.fontStyle === 'italic' ? 'normal' : 'italic' }); canvas.requestRenderAll(); if (window.updatePropertyPanel) window.updatePropertyPanel(obj); } }; }
-if (savePresetBtn) { savePresetBtn.onclick = () => { const obj = canvas.getActiveObject(); if (!obj || obj.type !== 'i-text') { window.showToast('자막을 선택하세요'); return; } const name = presetNameInput.value.trim(); if (!name) { window.showToast('프리셋 이름을 입력하세요'); return; } const bOp = obj.baseOpacity !== undefined ? obj.baseOpacity : obj.opacity; const bSx = obj.baseScaleX !== undefined ? obj.baseScaleX : obj.scaleX; const bSy = obj.baseScaleY !== undefined ? obj.baseScaleY : obj.scaleY; const bAng = obj.baseAngle !== undefined ? obj.baseAngle : obj.angle; const bL = obj.baseLeft !== undefined ? obj.baseLeft : obj.left; const bT = obj.baseTop !== undefined ? obj.baseTop : obj.top; subtitlePresets[name] = { text: obj.text, fontFamily: obj.fontFamily, fontSize: obj.fontSize, fill: obj.fill, charSpacing: obj.charSpacing, strokeWidth: obj.strokeWidth, stroke: obj.stroke, lineHeight: obj.lineHeight, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle, textAlign: obj.textAlign, left: bL, top: bT, angle: bAng, scaleX: bSx, scaleY: bSy, opacity: bOp, baseLeft: bL, baseTop: bT, baseAngle: bAng, baseScaleX: bSx, baseScaleY: bSy, baseOpacity: bOp, shadow: obj.shadow ? { blur: obj.shadow.blur, color: obj.shadow.color, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY } : null }; localStorage.setItem('subtitlePresets', JSON.stringify(subtitlePresets)); refreshPresetList(); presetSelect.value = name; window.showToast('프리셋 저장 완료'); }; }
-if (loadPresetBtn) { loadPresetBtn.onclick = () => { const obj = canvas.getActiveObject(); if (!obj || obj.type !== 'i-text') { window.showToast('자막을 선택하세요'); return; } const name = presetSelect.value; if (!name || !subtitlePresets[name]) { window.showToast('프리셋을 선택하세요'); return; } window.saveHistorySnapshot(); const p = subtitlePresets[name]; const bOp = p.baseOpacity !== undefined ? p.baseOpacity : (p.opacity ? p.opacity : 1); const bSx = p.baseScaleX !== undefined ? p.baseScaleX : (p.scaleX !== undefined ? p.scaleX : 1); const bSy = p.baseScaleY !== undefined ? p.baseScaleY : (p.scaleY !== undefined ? p.scaleY : 1); const bAng = p.baseAngle !== undefined ? p.baseAngle : (p.angle !== undefined ? p.angle : 0); const bL = p.baseLeft !== undefined ? p.baseLeft : (p.left !== undefined ? p.left : obj.left); const bT = p.baseTop !== undefined ? p.baseTop : (p.top !== undefined ? p.top : obj.top); obj.set({ text: p.text !== undefined ? p.text : obj.text, fontFamily: p.fontFamily, fontSize: p.fontSize, fill: p.fill, charSpacing: p.charSpacing, strokeWidth: p.strokeWidth, stroke: p.stroke, lineHeight: p.lineHeight, fontWeight: p.fontWeight || 'normal', fontStyle: p.fontStyle || 'normal', textAlign: p.textAlign || 'left', opacity: bOp, baseOpacity: bOp, scaleX: bSx, baseScaleX: bSx, scaleY: bSy, baseScaleY: bSy, angle: bAng, baseAngle: bAng, left: bL, baseLeft: bL, top: bT, baseTop: bT }); if (p.shadow) { obj.set('shadow', new fabric.Shadow({ blur: p.shadow.blur !== undefined ? p.shadow.blur : 0, offsetX: p.shadow.offsetX !== undefined ? p.shadow.offsetX : (p.shadow.blur || 0), offsetY: p.shadow.offsetY !== undefined ? p.shadow.offsetY : (p.shadow.blur || 0), color: p.shadow.color })); } else { obj.set('shadow', null); } canvas.requestRenderAll(); window.updatePropertyPanel(obj); window.showToast('프리셋 적용 완료'); }; }
+if (fontNormalBtn) {
+    fontNormalBtn.onclick = () => {
+        const obj = canvas.getActiveObject();
+        if (obj && obj.type === 'i-text') {
+            window.saveHistorySnapshot();
+            if (obj.isEditing) {
+                obj.setSelectionStyles({ fontWeight: 'normal', fontStyle: 'normal' });
+            } else {
+                obj.set({ fontWeight: 'normal', fontStyle: 'normal' });
+            }
+            canvas.requestRenderAll();
+            if (window.updatePropertyPanel) window.updatePropertyPanel(obj);
+        }
+    };
+}
+if (fontBoldBtn) {
+    fontBoldBtn.onclick = () => {
+        const obj = canvas.getActiveObject();
+        if (obj && obj.type === 'i-text') {
+            window.saveHistorySnapshot();
+            let currentVal = '';
+            if (obj.isEditing) {
+                const styles = obj.getSelectionStyles();
+                currentVal = (styles.length > 0 && styles[0]) ? (styles[0].fontWeight || 'normal') : (obj.fontWeight || 'normal');
+            } else {
+                currentVal = obj.fontWeight || 'normal';
+            }
+            const nextVal = (currentVal === 'bold') ? 'normal' : 'bold';
+            
+            if (obj.isEditing) {
+                obj.setSelectionStyles({ fontWeight: nextVal });
+            } else {
+                obj.set({ fontWeight: nextVal });
+            }
+            canvas.requestRenderAll();
+            if (window.updatePropertyPanel) window.updatePropertyPanel(obj);
+        }
+    };
+}
+if (fontItalicBtn) {
+    fontItalicBtn.onclick = () => {
+        const obj = canvas.getActiveObject();
+        if (obj && obj.type === 'i-text') {
+            window.saveHistorySnapshot();
+            let currentVal = '';
+            if (obj.isEditing) {
+                const styles = obj.getSelectionStyles();
+                currentVal = (styles.length > 0 && styles[0]) ? (styles[0].fontStyle || 'normal') : (obj.fontStyle || 'normal');
+            } else {
+                currentVal = obj.fontStyle || 'normal';
+            }
+            const nextVal = (currentVal === 'italic') ? 'normal' : 'italic';
+            
+            if (obj.isEditing) {
+                obj.setSelectionStyles({ fontStyle: nextVal });
+            } else {
+                obj.set({ fontStyle: nextVal });
+            }
+            canvas.requestRenderAll();
+            if (window.updatePropertyPanel) window.updatePropertyPanel(obj);
+        }
+    };
+}
+if (savePresetBtn) {
+    savePresetBtn.onclick = () => {
+        const obj = canvas.getActiveObject();
+        if (!obj || obj.type !== 'i-text') {
+            window.showToast('자막을 선택하세요');
+            return;
+        }
+        const name = presetNameInput.value.trim();
+        if (!name) {
+            window.showToast('프리셋 이름을 입력하세요');
+            return;
+        }
+        const bOp = obj.baseOpacity !== undefined ? obj.baseOpacity : obj.opacity;
+        const bSx = obj.baseScaleX !== undefined ? obj.baseScaleX : obj.scaleX;
+        const bSy = obj.baseScaleY !== undefined ? obj.baseScaleY : obj.scaleY;
+        const bAng = obj.baseAngle !== undefined ? obj.baseAngle : obj.angle;
+        const bL = obj.baseLeft !== undefined ? obj.baseLeft : obj.left;
+        const bT = obj.baseTop !== undefined ? obj.baseTop : obj.top;
+        
+        subtitlePresets[name] = {
+            text: obj.text,
+            fontFamily: obj.fontFamily,
+            fontSize: obj.fontSize,
+            fill: obj.fill,
+            charSpacing: obj.charSpacing,
+            strokeWidth: obj.strokeWidth,
+            stroke: obj.stroke,
+            lineHeight: obj.lineHeight,
+            fontWeight: obj.fontWeight,
+            fontStyle: obj.fontStyle,
+            textAlign: obj.textAlign,
+            left: bL,
+            top: bT,
+            angle: bAng,
+            scaleX: bSx,
+            scaleY: bSy,
+            opacity: bOp,
+            baseLeft: bL,
+            baseTop: bT,
+            baseAngle: bAng,
+            baseScaleX: bSx,
+            baseScaleY: bSy,
+            baseOpacity: bOp,
+            shadow: obj.shadow ? {
+                blur: obj.shadow.blur,
+                color: obj.shadow.color,
+                offsetX: obj.shadow.offsetX,
+                offsetY: obj.shadow.offsetY
+            } : null,
+            styles: obj.styles ? JSON.parse(JSON.stringify(obj.styles)) : null
+        };
+        localStorage.setItem('subtitlePresets', JSON.stringify(subtitlePresets));
+        refreshPresetList();
+        presetSelect.value = name;
+        window.showToast('프리셋 저장 완료');
+    };
+}
+if (loadPresetBtn) {
+    loadPresetBtn.onclick = () => {
+        const obj = canvas.getActiveObject();
+        if (!obj || obj.type !== 'i-text') {
+            window.showToast('자막을 선택하세요');
+            return;
+        }
+        const name = presetSelect.value;
+        if (!name || !subtitlePresets[name]) {
+            window.showToast('프리셋을 선택하세요');
+            return;
+        }
+        window.saveHistorySnapshot();
+        const p = subtitlePresets[name];
+        const bOp = p.baseOpacity !== undefined ? p.baseOpacity : (p.opacity ? p.opacity : 1);
+        const bSx = p.baseScaleX !== undefined ? p.baseScaleX : (p.scaleX !== undefined ? p.scaleX : 1);
+        const bSy = p.baseScaleY !== undefined ? p.baseScaleY : (p.scaleY !== undefined ? p.scaleY : 1);
+        const bAng = p.baseAngle !== undefined ? p.baseAngle : (p.angle !== undefined ? p.angle : 0);
+        const bL = p.baseLeft !== undefined ? p.baseLeft : (p.left !== undefined ? p.left : obj.left);
+        const bT = p.baseTop !== undefined ? p.baseTop : (p.top !== undefined ? p.top : obj.top);
+        
+        obj.set({
+            text: p.text !== undefined ? p.text : obj.text,
+            styles: p.styles ? JSON.parse(JSON.stringify(p.styles)) : {},
+            fontFamily: p.fontFamily,
+            fontSize: p.fontSize,
+            fill: p.fill,
+            charSpacing: p.charSpacing,
+            strokeWidth: p.strokeWidth,
+            stroke: p.stroke,
+            lineHeight: p.lineHeight,
+            fontWeight: p.fontWeight || 'normal',
+            fontStyle: p.fontStyle || 'normal',
+            textAlign: p.textAlign || 'left',
+            opacity: bOp,
+            baseOpacity: bOp,
+            scaleX: bSx,
+            baseScaleX: bSx,
+            scaleY: bSy,
+            baseScaleY: bSy,
+            angle: bAng,
+            baseAngle: bAng,
+            left: bL,
+            baseLeft: bL,
+            top: bT,
+            baseTop: bT
+        });
+        if (p.shadow) {
+            obj.set('shadow', new fabric.Shadow({
+                blur: p.shadow.blur !== undefined ? p.shadow.blur : 0,
+                offsetX: p.shadow.offsetX !== undefined ? p.shadow.offsetX : (p.shadow.blur || 0),
+                offsetY: p.shadow.offsetY !== undefined ? p.shadow.offsetY : (p.shadow.blur || 0),
+                color: p.shadow.color
+            }));
+        } else {
+            obj.set('shadow', null);
+        }
+        canvas.requestRenderAll();
+        if (typeof window.updateLayerVisibility === 'function') window.updateLayerVisibility();
+        window.updatePropertyPanel(obj);
+        window.showToast('프리셋 적용 완료');
+    };
+}
 if (deletePresetBtn) { deletePresetBtn.onclick = () => { const name = presetSelect.value; if (!name) return; delete subtitlePresets[name]; localStorage.setItem('subtitlePresets', JSON.stringify(subtitlePresets)); refreshPresetList(); window.showToast('프리셋 삭제 완료'); }; }
 if (bgBtn) bgBtn.onclick = () => { if (bgInput) bgInput.value = ''; bgInput.click(); };
 if (videoBtn) videoBtn.onclick = () => { if (videoInput) videoInput.value = ''; videoInput.click(); };
@@ -2341,13 +2540,47 @@ if (audioInput) {
 }
 if (addTextBtn) {
     addTextBtn.onclick = () => {
-        const text = new fabric.IText(`자막 ${subtitleCount}`, { left: canvas.width / 2, top: canvas.height / 2, originX: 'center', originY: 'center', fontFamily: 'Pretendard', fontSize: 80, fill: '#000000', zIndex: 14, baseOpacity: 1, baseScaleX: 1, baseScaleY: 1, baseAngle: 0 });
-        text.baseLeft = text.left; text.baseTop = text.top; text.trackType = 'overlay'; text.layerName = `Subtitle ${subtitleCount++}`;
+        const count = window.subtitleCount || 1;
+        const text = new fabric.IText(`자막 ${count}`, {
+            left: canvas.width / 2,
+            top: canvas.height / 2,
+            originX: 'center',
+            originY: 'center',
+            fontFamily: 'Pretendard, Arial, sans-serif',
+            fontSize: 80,
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeWidth: 4,
+            zIndex: 14,
+            baseOpacity: 1,
+            baseScaleX: 1,
+            baseScaleY: 1,
+            baseAngle: 0
+        });
+        text.baseLeft = text.left;
+        text.baseTop = text.top;
+        text.trackType = 'overlay';
+        text.layerName = `Subtitle ${count}`;
+        window.subtitleCount = count + 1;
+
         const subDur = 5;
         const subIdx = 4;
-        if (window.TimelinePlacement) window.TimelinePlacement.placeClipOnTrack(text, 'overlay', subIdx, subDur, { preferredStart: currentTime }); else { text.startTime = 0; text.endTime = subDur; text.trackIndex = subIdx; }
-        canvas.add(text); canvas.setActiveObject(text); sortCanvasLayers();
-        if (typeof window.renderTracks === 'function') window.renderTracks(); window.updatePropertyPanel(); window.showToast('자막 추가 완료');
+        if (window.TimelinePlacement) {
+            window.TimelinePlacement.placeClipOnTrack(text, 'overlay', subIdx, subDur, { preferredStart: currentTime });
+        } else {
+            text.startTime = currentTime;
+            text.endTime = currentTime + subDur;
+            text.trackIndex = subIdx;
+        }
+        currentTime = text.startTime;
+        canvas.add(text);
+        canvas.setActiveObject(text);
+        sortCanvasLayers();
+        if (typeof window.updateTimelineUI === 'function') window.updateTimelineUI();
+        if (typeof window.updateLayerVisibility === 'function') window.updateLayerVisibility();
+        if (typeof window.renderTracks === 'function') window.renderTracks();
+        window.updatePropertyPanel();
+        window.showToast('자막 추가 완료');
     };
 }
 

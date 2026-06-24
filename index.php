@@ -187,11 +187,15 @@ if (!$is_allowed) {
         <div class="panel-title">PROPERTIES</div>
         <div id="propertiesPanel" style="flex:1;overflow-y:auto;">
           <select id="propTrackIndex" style="display:none;"></select>
-          <div class="prop-group prop-common flex-row-center">
+          <div class="prop-group prop-common flex-row-center" style="gap:4px;">
             <label style="margin:0;white-space:nowrap;width:40px;">투명도</label>
-            <input type="range" id="propOpacity" min="0" max="100" value="100" style="flex:1;">
-            <label style="margin:0;margin-left:10px;white-space:nowrap;width:30px;">회전</label>
-            <input type="range" id="propAngle" min="-180" max="180" value="0" style="flex:1;">
+            <input type="range" id="propOpacity" min="0" max="100" value="100" style="flex:1;min-width:30px;">
+            <input type="number" id="propOpacityNum" min="0" max="100" value="100" step="1"
+              style="width:42px;padding:2px 3px;font-size:11px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;background:#f8fafc;">
+            <label style="margin:0;margin-left:6px;white-space:nowrap;width:28px;">회전</label>
+            <input type="range" id="propAngle" min="-180" max="180" value="0" style="flex:1;min-width:30px;">
+            <input type="number" id="propAngleNum" min="-180" max="180" value="0" step="1"
+              style="width:46px;padding:2px 3px;font-size:11px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;background:#f8fafc;">
           </div>
           <div class="prop-group prop-image-mask" style="margin-top: 5px; margin-bottom: 5px;">
             <label style="margin-bottom: 4px; display: block;">캔버스 크기에 맞추기</label>
@@ -340,7 +344,7 @@ if (!$is_allowed) {
             </div>
             <div style="display:flex; gap:4px;">
               <select id="presetSelect"
-                style="flex:1; height:24px; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:4px; font-size:11px; padding:0 6px;"></select>
+                style="flex:1; height:24px; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:4px; font-size:11px; padding:0 6px; appearance:none; -webkit-appearance:none; -moz-appearance:none;"></select>
               <button id="loadPresetBtn"
                 style="padding:0 12px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; font-weight:bold; height:24px; box-sizing:border-box; white-space:nowrap; box-shadow:0 1px 2px rgba(37,99,235,0.2);">적용</button>
               <button id="deletePresetBtn"

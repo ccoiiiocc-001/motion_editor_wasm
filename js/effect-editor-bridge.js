@@ -205,6 +205,11 @@
             case 'editor:apply':
                 await handleApply(data);
                 break;
+            case 'editor:presets-updated':
+                if (typeof window.refreshPresetList === 'function') {
+                    window.refreshPresetList();
+                }
+                break;
             case 'editor:cancel':
                 closeEditor();
                 break;

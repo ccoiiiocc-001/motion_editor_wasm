@@ -555,6 +555,7 @@
             console.error('[embed-bridge] postMessage failed:', e);
         }
     }
+    window.postToHost = postToHost;
 
     function onMessage(evt) {
         const data = evt.data;

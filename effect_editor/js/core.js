@@ -2607,6 +2607,9 @@ window.applySubtitleProperty = function (key, value) {
                 refreshTextPresetSelect();
                 presetSelect.value = trimmedName;
                 if (presetNameInput) presetNameInput.value = '';
+                if (typeof window.postToHost === 'function') {
+                    window.postToHost({ type: 'editor:presets-updated' });
+                }
             });
         }
 
@@ -2631,6 +2634,9 @@ window.applySubtitleProperty = function (key, value) {
                 }
                 refreshTextPresetSelect();
                 alert('자막 프리셋이 삭제되었습니다.');
+                if (typeof window.postToHost === 'function') {
+                    window.postToHost({ type: 'editor:presets-updated' });
+                }
             });
         }
 
