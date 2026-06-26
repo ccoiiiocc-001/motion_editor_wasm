@@ -132,6 +132,21 @@ const btnApplyEffect = document.getElementById('btnApplyEffect');
 const btnApplyTrackEffect = document.getElementById('btnApplyTrackEffect');
 const canvas = new fabric.Canvas('mainCanvas', { backgroundColor: '#ffffff', preserveObjectStacking: true });
 window.canvas = canvas;
+// 가이드선 초기화 (canvas-guides.js)
+if (typeof window.initCanvasGuides === 'function') {
+    window.initCanvasGuides(canvas);
+} else {
+    window.addEventListener('load', () => {
+        if (typeof window.initCanvasGuides === 'function') window.initCanvasGuides(canvas);
+    });
+}
+// 가이드선 토글 버튼
+const guideToggleBtn = document.getElementById('guideToggleBtn');
+if (guideToggleBtn) {
+    guideToggleBtn.addEventListener('click', () => {
+        if (typeof window.toggleCanvasGuides === 'function') window.toggleCanvasGuides();
+    });
+}
 fabric.Object.prototype.set({ transparentCorners: false, cornerStyle: 'circle', cornerSize: 20, touchCornerSize: 32, padding: 8, borderColor: '#ff66cc', cornerColor: '#ff99dd', cornerStrokeColor: '#ffffff' });
 if (fabric.IText) { fabric.IText.prototype.set({ paintFirst: 'stroke', strokeLineJoin: 'round', strokeLineCap: 'round', strokeMiterLimit: 2, strokeUniform: true }); }
 window.stepInput = function(id, val) { const el = document.getElementById(id); if (el) { el.value = parseFloat(el.value || 0) + val; el.dispatchEvent(new Event('input')); } };
@@ -231,8 +246,7 @@ try {
 
 const pState = {};
 Object.keys(defaultParticleState).forEach(k => {
-    // Only load options (amt, sz, spd, wnd, opac, blur, useCol, colVal)
-    // up, down, grow should NOT be restored as per user request, preserving default checkbox states
+    // Load all options including behavior states (up, down, grow) from saved storage
     pState[k] = Object.assign({}, defaultParticleState[k]);
     const savedOpt = loadedState ? loadedState[k] : null;
     if (savedOpt) {
@@ -244,6 +258,9 @@ Object.keys(defaultParticleState).forEach(k => {
         if (savedOpt.blur !== undefined) pState[k].blur = savedOpt.blur;
         if (savedOpt.useCol !== undefined) pState[k].useCol = savedOpt.useCol;
         if (savedOpt.colVal !== undefined) pState[k].colVal = savedOpt.colVal;
+        if (savedOpt.up !== undefined) pState[k].up = savedOpt.up;
+        if (savedOpt.down !== undefined) pState[k].down = savedOpt.down;
+        if (savedOpt.grow !== undefined) pState[k].grow = savedOpt.grow;
     }
 });
 let db;

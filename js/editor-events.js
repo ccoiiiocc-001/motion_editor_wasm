@@ -134,7 +134,10 @@ function saveParticleStateToStorage() {
             opac: pState[k].opac,
             blur: pState[k].blur,
             useCol: pState[k].useCol,
-            colVal: pState[k].colVal
+            colVal: pState[k].colVal,
+            up: pState[k].up,
+            down: pState[k].down,
+            grow: pState[k].grow
         };
     });
     localStorage.setItem('motion_editor_particle_state_v3', JSON.stringify(storageState));
@@ -288,9 +291,8 @@ function renderPopupLoop() {
             waveAnalyser.getByteFrequencyData(waveDataArray);
             freqData = waveDataArray;
         } else if (isAudio) {
-            // Audio mode, but paused/stopped. Show quiet/flat baseline.
-            freqData = new Uint8Array(count);
-            freqData.fill(0); // quiet in frequency domain
+            // Audio mode, but paused/stopped. Hide waveform entirely.
+            freqData = null; // don't draw anything before playback starts
         } else {
             const len = count;
             freqData = new Uint8Array(len);
@@ -866,70 +868,124 @@ function drawWaveform(ctx, data, shape, colorMode, w, h) {
             }
         }
     } else if (shape === 'line' || shape === 'wave') {
-        let radius = Math.min(realW, realH) * 0.2;
+        // Horizontal linear waveform: line moves up/down based on audio volume
         let useData = symData;
-        
-        ctx.beginPath();
-        for (let i = 0; i <= useData.length; i++) {
-            let idx = i % useData.length;
-            let val = useData[idx] / 255.0;
-            let barH = val * (Math.min(realW, realH) * 0.25);
-            let rads = (Math.PI * 2 / useData.length) * i - Math.PI / 2;
-            let ex = Math.cos(rads) * (radius + barH);
-            let ey = Math.sin(rads) * (radius + barH);
+        let maxAmplitude = realH * 0.45; // max vertical displacement from center
 
-            if (i === 0) ctx.moveTo(ex, ey);
-            else ctx.lineTo(ex, ey);
+        // Build stroke color / fill gradient
+        let lineStrokeStyle = baseColor;
+        let lineFillStyle = baseColor;
+        if (colorMode === 'rainbow') {
+            let grad = ctx.createLinearGradient(startX, 0, startX + realW, 0);
+            grad.addColorStop(0, 'red'); grad.addColorStop(0.25, 'yellow');
+            grad.addColorStop(0.5, 'lime'); grad.addColorStop(0.75, 'cyan');
+            grad.addColorStop(1, 'blue');
+            lineStrokeStyle = grad;
+            lineFillStyle = grad;
+        } else if (colorMode === 'gradient') {
+            let grad = ctx.createLinearGradient(startX, 0, startX + realW, 0);
+            grad.addColorStop(0, 'rgba(255,255,255,0)');
+            grad.addColorStop(0.5, baseColor);
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            lineStrokeStyle = grad;
+            lineFillStyle = grad;
+        } else if (colorMode === 'tier3') {
+            // Color based on amplitude: blue=low, green=mid, pink=high
+            // We'll apply per-segment coloring below
+            lineStrokeStyle = null;
+            lineFillStyle = null;
         }
-        ctx.closePath();
 
         if (shape === 'wave') {
-            if (colorMode === 'rainbow') {
-                let grad = ctx.createRadialGradient(0, 0, radius, 0, 0, radius + (Math.min(realW, realH) * 0.25));
-                grad.addColorStop(0, 'red'); grad.addColorStop(0.5, 'lime'); grad.addColorStop(1, 'blue');
-                ctx.fillStyle = grad;
+            // Filled wave: draw path down to baseline and back
+            // Canvas Y increases downward, so negate val to keep high amplitude going UP
+            ctx.beginPath();
+            for (let i = 0; i < useData.length; i++) {
+                let val = (useData[i] / 255.0) * 2 - 1; // -1 to +1
+                let x = startX + (i / (useData.length - 1)) * realW;
+                let y = -val * maxAmplitude; // negate: up = negative Y in canvas
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            // Close path along baseline
+            ctx.lineTo(startX + realW, 0);
+            ctx.lineTo(startX, 0);
+            ctx.closePath();
+
+            if (colorMode === 'rainbow' || colorMode === 'gradient') {
+                ctx.fillStyle = lineFillStyle;
             } else if (colorMode === 'tier3') {
-                let grad = ctx.createLinearGradient(0, -realH/2, 0, realH/2);
-                grad.addColorStop(0, '#ff7ed9');     // High (Pink) at top
-                grad.addColorStop(0.3, '#ff7ed9');
-                grad.addColorStop(0.3, '#03ff6d');  // Mid (Neon green) in middle
-                grad.addColorStop(0.7, '#03ff6d');
-                grad.addColorStop(0.7, '#605eff');  // Low (Indigo/blue) at bottom
-                grad.addColorStop(1, '#605eff');
+                let grad = ctx.createLinearGradient(0, -maxAmplitude, 0, maxAmplitude);
+                grad.addColorStop(0, '#ff7ed9');
+                grad.addColorStop(0.35, '#03ff6d');
+                grad.addColorStop(0.5, '#605eff');
+                grad.addColorStop(0.65, '#03ff6d');
+                grad.addColorStop(1, '#ff7ed9');
                 ctx.fillStyle = grad;
-                ctx.globalAlpha = 0.5;
             } else {
                 ctx.fillStyle = baseColor;
-                ctx.globalAlpha = 0.5;
             }
+            ctx.globalAlpha = 0.55;
             ctx.fill();
             ctx.globalAlpha = 1.0;
-        } else {
-            // shape === 'line'
-            if (colorMode === 'rainbow') {
-                let grad = ctx.createLinearGradient(-realW/2, 0, realW/2, 0);
-                grad.addColorStop(0, 'red'); grad.addColorStop(0.5, 'lime'); grad.addColorStop(1, 'blue');
-                ctx.strokeStyle = grad;
-            } else if (colorMode === 'gradient') {
-                let grad = ctx.createRadialGradient(0, 0, radius, 0, 0, radius + (Math.min(realW, realH) * 0.25));
-                grad.addColorStop(0, baseColor); grad.addColorStop(1, 'rgba(255,255,255,0)');
-                ctx.strokeStyle = grad;
-            } else if (colorMode === 'tier3') {
-                let grad = ctx.createLinearGradient(0, -realH/2, 0, realH/2);
-                grad.addColorStop(0, '#ff7ed9');     // High (Pink) at top
-                grad.addColorStop(0.3, '#ff7ed9');
-                grad.addColorStop(0.3, '#03ff6d');  // Mid (Neon green) in middle
-                grad.addColorStop(0.7, '#03ff6d');
-                grad.addColorStop(0.7, '#605eff');  // Low (Indigo/blue) at bottom
-                grad.addColorStop(1, '#605eff');
-                ctx.strokeStyle = grad;
-            } else {
-                ctx.strokeStyle = baseColor;
+
+            // Draw top outline stroke
+            ctx.beginPath();
+            for (let i = 0; i < useData.length; i++) {
+                let val = (useData[i] / 255.0) * 2 - 1;
+                let x = startX + (i / (useData.length - 1)) * realW;
+                let y = -val * maxAmplitude; // negate: up = negative Y in canvas
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
             }
+            ctx.strokeStyle = lineStrokeStyle !== null ? lineStrokeStyle : baseColor;
             ctx.lineWidth = drawWidth;
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
             ctx.stroke();
+        } else {
+            // shape === 'line': horizontal line that moves with audio amplitude
+            // Draw per-segment with tier3 support
+            if (colorMode === 'tier3') {
+                // Draw each segment colored by amplitude
+                for (let i = 0; i < useData.length - 1; i++) {
+                    let val0 = useData[i] / 255.0;
+                    let val1 = useData[i + 1] / 255.0;
+                    let x0 = startX + (i / (useData.length - 1)) * realW;
+                    let y0 = -(val0 * 2 - 1) * maxAmplitude; // negate: up = negative Y
+                    let x1 = startX + ((i + 1) / (useData.length - 1)) * realW;
+                    let y1 = -(val1 * 2 - 1) * maxAmplitude; // negate: up = negative Y
+
+                    let avgVal = (val0 + val1) / 2;
+                    let segColor;
+                    if (avgVal < 0.33) segColor = '#605eff';        // low: indigo/blue
+                    else if (avgVal < 0.66) segColor = '#03ff6d';   // mid: neon green
+                    else segColor = '#ff7ed9';                       // high: pink
+
+                    ctx.beginPath();
+                    ctx.moveTo(x0, y0);
+                    ctx.lineTo(x1, y1);
+                    ctx.strokeStyle = segColor;
+                    ctx.lineWidth = drawWidth;
+                    ctx.lineJoin = 'round';
+                    ctx.lineCap = 'round';
+                    ctx.stroke();
+                }
+            } else {
+                ctx.beginPath();
+                for (let i = 0; i < useData.length; i++) {
+                    let val = (useData[i] / 255.0) * 2 - 1; // -1 to +1, centered at 0
+                    let x = startX + (i / (useData.length - 1)) * realW;
+                    let y = -val * maxAmplitude; // negate: up = negative Y in canvas
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.strokeStyle = lineStrokeStyle;
+                ctx.lineWidth = drawWidth;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
         }
     } else if (shape === 'circle') {
         let radius = Math.min(realW, realH) * 0.2;
@@ -961,29 +1017,55 @@ function drawWaveform(ctx, data, shape, colorMode, w, h) {
             ctx.stroke();
         }
     } else if (shape === 'dots') {
-        let radius = Math.min(realW, realH) * 0.2;
         let useData = symData;
-        for (let i = 0; i < useData.length; i++) {
+        let barW = realW / count;
+        let maxH = realH * 0.45;
+        let xOffset = startX;
+        let yOffset = realH / 2; // bottom baseline
+
+        // Setup dot properties
+        let dotRadius = Math.max(2, drawWidth / 2);
+        let dotSpacing = dotRadius * 2.5; // space between dot centers
+
+        let dotFillStyle = baseColor;
+        if (colorMode === 'gradient') {
+            let grad = ctx.createLinearGradient(0, yOffset, 0, yOffset - maxH);
+            grad.addColorStop(0, baseColor);
+            grad.addColorStop(1, 'rgba(255,255,255,0.2)');
+            dotFillStyle = grad;
+        }
+
+        for (let i = 0; i < count; i++) {
             let val = useData[i] / 255.0;
-            let barH = val * (Math.min(realW, realH) * 0.25);
-            let rads = (Math.PI * 2 / useData.length) * i - Math.PI / 2;
-            let dotX = Math.cos(rads) * (radius + barH);
-            let dotY = Math.sin(rads) * (radius + barH);
+            let center = (count - 1) / 2;
+            let sigma = (count - 1) / 5.5;
+            let gZero = Math.exp(-0.5 * Math.pow((0 - center) / sigma, 2));
+            let bellFactor = (Math.exp(-0.5 * Math.pow((i - center) / sigma, 2)) - gZero) / (1 - gZero);
+            let barH = val * maxH * bellFactor;
 
-            let itemColor = baseColor;
-            if (colorMode === 'tier3') {
-                let ratio = Math.abs(i - useData.length / 2) / (useData.length / 2);
-                if (ratio < 0.3) itemColor = '#605eff';
-                else if (ratio < 0.7) itemColor = '#03ff6d';
-                else itemColor = '#ff7ed9';
-            } else if (colorMode === 'rainbow') {
-                itemColor = `hsl(${(i / useData.length) * 360}, 100%, 50%)`;
+            // Center of the bar column
+            let x = xOffset + i * barW + barW / 2;
+
+            let currY = yOffset;
+            while (currY >= yOffset - barH) {
+                let itemColor = dotFillStyle;
+                if (colorMode === 'tier3') {
+                    let heightRatio = (yOffset - currY) / (maxH || 1);
+                    if (heightRatio < 0.35) itemColor = '#605eff';
+                    else if (heightRatio < 0.70) itemColor = '#03ff6d';
+                    else itemColor = '#ff7ed9';
+                } else if (colorMode === 'rainbow') {
+                    itemColor = `hsl(${(i / count) * 360}, 100%, 50%)`;
+                }
+
+                ctx.fillStyle = itemColor;
+                ctx.beginPath();
+                ctx.arc(x, currY, dotRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                currY -= dotSpacing;
+                if (dotSpacing <= 0) break;
             }
-            ctx.fillStyle = itemColor;
-
-            ctx.beginPath();
-            ctx.arc(dotX, dotY, Math.max(2, drawWidth / 2), 0, Math.PI * 2);
-            ctx.fill();
         }
     } else if (shape === 'stamp') {
         let radius = Math.min(realW, realH) * 0.2;
