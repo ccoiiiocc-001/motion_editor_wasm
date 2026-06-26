@@ -49,7 +49,7 @@ document.addEventListener('mouseup',(e)=>{
     if (didDrag && typeof window.renderTracks === 'function') window.renderTracks();
 });
 if(timelineTracks){timelineTracks.onwheel=e=>{if(!e.shiftKey)return;e.preventDefault();timelineScrollX+=e.deltaY*visibleTimelineDuration/5000;timelineScrollX=Math.max(0,Math.min(timelineScrollX,MAX_TIMELINE_DURATION-visibleTimelineDuration));currentTime=timelineScrollX+(visibleTimelineDuration/2);window.updateTimelineUI();window.updateLayerVisibility();window.renderTracks();};}
-if(timelineZoom){timelineZoom.oninput=e=>{let pct=parseFloat(e.target.value);if(pct<1)pct=1;if(pct>40)pct=40;visibleTimelineDuration=MAX_TIMELINE_DURATION/pct;if(visibleTimelineDuration>MAX_TIMELINE_DURATION)visibleTimelineDuration=MAX_TIMELINE_DURATION;window.updateTimelineUI();window.renderTracks();};}
+if(timelineZoom){timelineZoom.oninput=e=>{let pct=parseFloat(e.target.value);if(pct<1)pct=1;if(pct>800)pct=800;visibleTimelineDuration=MAX_TIMELINE_DURATION/pct;if(visibleTimelineDuration>MAX_TIMELINE_DURATION)visibleTimelineDuration=MAX_TIMELINE_DURATION;window.updateTimelineUI();window.renderTracks();};}
 if(zoomInBtn){zoomInBtn.onclick=()=>{visibleTimelineDuration=Math.max(15,visibleTimelineDuration/1.5);window.updateTimelineUI();window.renderTracks();};}
 if(zoomOutBtn){zoomOutBtn.onclick=()=>{visibleTimelineDuration=Math.min(MAX_TIMELINE_DURATION,visibleTimelineDuration*1.5);window.updateTimelineUI();window.renderTracks();};}
 

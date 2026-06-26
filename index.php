@@ -48,6 +48,7 @@ if (!$is_allowed) {
   <script defer src="js/timeline-events.js?v=<?php echo filemtime('js/timeline-events.js'); ?>"></script>
   <script type="module" src="js/auto-subtitle.js?v=<?php echo filemtime('js/auto-subtitle.js'); ?>"></script>
   <script type="module" src="js/lyrics-subtitle.js?v=<?php echo filemtime('js/lyrics-subtitle.js'); ?>"></script>
+  <script defer src="js/canvas-guides.js?v=<?php echo filemtime('js/canvas-guides.js'); ?>"></script>
 </head>
 <body>
   <!-- 에디터 초기화 지연 감춤용 오버레이 (레이아웃 틀어짐 방지) -->
@@ -178,9 +179,12 @@ if (!$is_allowed) {
         <div class="canvas-toolbar" style="display:flex; gap:8px; justify-content:flex-end;">
           <button id="undoBtn" class="toolbar-btn btn-undo" title="이전 (Undo)" style="width:32px; height:32px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:18px;">↶</button>
           <button id="redoBtn" class="toolbar-btn btn-undo" title="이후 (Redo)" style="width:32px; height:32px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:18px;">↷</button>
+          <button id="guideToggleBtn" class="toolbar-btn" title="가이드선 보이기/감추기"
+            style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:15px;background:#64748b;color:white;box-shadow:0 2px 4px rgba(100,116,139,0.35);">⊞</button>
         </div>
-        <main class="canvas-area">
+        <main class="canvas-area" style="position:relative;">
           <canvas id="mainCanvas"></canvas>
+          <div id="canvasGuideLayer" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:10;"></div>
         </main>
       </div>
       <aside class="right-panel" style="display:flex;flex-direction:column;">
@@ -471,23 +475,35 @@ if (!$is_allowed) {
           </div>
         </div>
         <div class="timeline-zoom-wrap" style="margin-left: auto;">
+          <label style="font-size:11px; font-weight:bold; margin-right:4px;">최대 시간:</label>
+          <select id="timelineMaxDurationSelect" style="width:70px; margin-right:8px; padding:4px; border-radius:4px; border:1px solid #cbd5e1; font-size:11px;">
+            <option value="3600">1시간</option>
+            <option value="7200" selected>2시간</option>
+            <option value="10800">3시간</option>
+            <option value="14400">4시간</option>
+            <option value="18000">5시간</option>
+            <option value="21600">6시간</option>
+            <option value="25200">7시간</option>
+            <option value="28800">8시간</option>
+            <option value="32400">9시간</option>
+            <option value="36000">10시간</option>
+            <option value="39600">11시간</option>
+          </select>
           <select id="defaultZoomSelect"
-            style="width:60px;margin:0 4px;padding:4px;border-radius:4px;border:1px solid #cbd5e1;">
+            style="width:65px;margin:0 4px;padding:4px;border-radius:4px;border:1px solid #cbd5e1;font-size:11px;">
             <option value="1">1X</option>
-            <option value="2">2X</option>
-            <option value="3">3X</option>
-            <option value="4">4X</option>
             <option value="5">5X</option>
-            <option value="7">7X</option>
             <option value="10">10X</option>
-            <option value="15">15X</option>
             <option value="20">20X</option>
-            <option value="25">25X</option>
-            <option value="35">35X</option>
+            <option value="30">30X</option>
             <option value="40">40X</option>
+            <option value="100">100X</option>
+            <option value="200">200X</option>
+            <option value="400">400X</option>
+            <option value="800">800X</option>
           </select>
           <button id="zoomOutBtn" title="축소 (−)">−</button>
-          <input type="range" id="timelineZoom" min="1" max="40" step="1" value="5">
+          <input type="range" id="timelineZoom" min="1" max="800" step="1" value="5">
           <button id="zoomInBtn" title="확대 (+)">+</button>
         </div>
       </div>

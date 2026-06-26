@@ -29,7 +29,7 @@ const timelineScrollThumb=document.getElementById('timelineScrollThumb');
 const defaultZoomSelect=document.getElementById('defaultZoomSelect');
 const SNAP_DISTANCE=0.15;
 let isDraggingWhitePlayhead=false;
-const MAX_TIMELINE_DURATION=60*60*2;
+let MAX_TIMELINE_DURATION=parseInt(localStorage.getItem('timeline_max_duration'))||60*60*2;
 let visibleTimelineDuration=MAX_TIMELINE_DURATION;
 let timelineScrollX=0;
 let currentTime=0;
@@ -47,12 +47,36 @@ const TRACK_LAYOUT=[{type:'overlay',index:4,label:'OVERLAY 5'},{type:'overlay',i
 if(defaultZoomSelect){
     let savedZoom=localStorage.getItem('defaultZoom')||'5';
     defaultZoomSelect.value=savedZoom;
+    if (!defaultZoomSelect.value) {
+        defaultZoomSelect.value = '5';
+        savedZoom = '5';
+    }
     visibleTimelineDuration=MAX_TIMELINE_DURATION/parseInt(savedZoom,10);
     defaultZoomSelect.onchange=()=>{
         localStorage.setItem('defaultZoom',defaultZoomSelect.value);
         visibleTimelineDuration=MAX_TIMELINE_DURATION/parseInt(defaultZoomSelect.value,10);
         if(typeof window.updateTimelineUI==='function')window.updateTimelineUI();
         if(typeof window.renderTracks==='function')window.renderTracks();
+    };
+}
+const timelineMaxDurationSelect = document.getElementById('timelineMaxDurationSelect');
+if (timelineMaxDurationSelect) {
+    timelineMaxDurationSelect.value = MAX_TIMELINE_DURATION.toString();
+    timelineMaxDurationSelect.onchange = () => {
+        const newDur = parseInt(timelineMaxDurationSelect.value, 10);
+        MAX_TIMELINE_DURATION = newDur;
+        localStorage.setItem('timeline_max_duration', newDur);
+        const zoomVal = defaultZoomSelect ? parseInt(defaultZoomSelect.value, 10) : 5;
+        visibleTimelineDuration = MAX_TIMELINE_DURATION / zoomVal;
+        if (currentTime > MAX_TIMELINE_DURATION) {
+            currentTime = MAX_TIMELINE_DURATION;
+            previewTime = currentTime;
+        }
+        if (timelineScrollX > MAX_TIMELINE_DURATION - visibleTimelineDuration) {
+            timelineScrollX = Math.max(0, MAX_TIMELINE_DURATION - visibleTimelineDuration);
+        }
+        if (typeof window.updateTimelineUI === 'function') window.updateTimelineUI();
+        if (typeof window.renderTracks === 'function') window.renderTracks();
     };
 }
 window.trackMuteStates = JSON.parse(localStorage.getItem('shorts_track_mute_states')) || {};
