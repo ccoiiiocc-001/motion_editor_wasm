@@ -98,18 +98,125 @@
         try {
             const ab = await blob.arrayBuffer();
             const u8 = new Uint8Array(ab);
-            const durationMs = durationSec * 1000;
-            for (let i = 0; i < u8.length - 11; i++) {
-                if (u8[i] !== 0x44 || u8[i + 1] !== 0x89) continue;
-                const sizeCode = u8[i + 2];
-                if (sizeCode === 0x88) {
-                    new DataView(u8.buffer, u8.byteOffset + i + 3, 8).setFloat64(0, durationMs);
-                    return new Blob([u8], { type: type || 'video/webm' });
+            const dv = new DataView(ab);
+
+            // EBML 가변 길이 정수 파싱 (VINT)
+            function readVint(pos) {
+                const b = u8[pos];
+                if (b === 0) return { val: 0, len: 1 };
+                let mask = 0x80, width = 1;
+                while (!(b & mask) && width < 8) { mask >>= 1; width++; }
+                let val = b & (mask - 1);
+                for (let k = 1; k < width; k++) val = (val * 256) + u8[pos + k];
+                return { val, len: width };
+            }
+
+            // 4바이트 EBML ID 읽기
+            function readId4(pos) {
+                return (u8[pos] << 24) | (u8[pos+1] << 16) | (u8[pos+2] << 8) | u8[pos+3];
+            }
+            function readId3(pos) {
+                return (u8[pos] << 16) | (u8[pos+1] << 8) | u8[pos+2];
+            }
+            function readId2(pos) {
+                return (u8[pos] << 8) | u8[pos+1];
+            }
+
+            const EBML_ID  = 0x1A45DFA3;
+            const SEG_ID   = 0x18538067;
+            const INFO_ID  = 0x1549A966;
+            const DUR_ID   = 0x4489;      // 2바이트
+            const TIMESCALE_ID = 0x2AD7B1; // 3바이트
+
+            let pos = 0, limit = u8.length;
+
+            // EBML Header 건너뛰기
+            while (pos < limit - 4) {
+                if (readId4(pos) === EBML_ID) {
+                    pos += 4;
+                    const sv = readVint(pos); pos += sv.len;
+                    pos += sv.val; // EBML header body skip
+                    break;
                 }
-                if (sizeCode === 0x84) {
-                    new DataView(u8.buffer, u8.byteOffset + i + 3, 4).setFloat32(0, durationMs);
-                    return new Blob([u8], { type: type || 'video/webm' });
+                pos++;
+            }
+
+            // Segment 찾기
+            let segBodyStart = -1;
+            while (pos < limit - 4) {
+                if (readId4(pos) === SEG_ID) {
+                    pos += 4;
+                    const sv = readVint(pos); pos += sv.len;
+                    segBodyStart = pos;
+                    break;
                 }
+                pos++;
+            }
+            if (segBodyStart < 0) return blob;
+
+            // Segment 안에서 Info 찾기 (Cluster 이전까지만)
+            let infoBodyStart = -1, infoBodyEnd = -1;
+            pos = segBodyStart;
+            while (pos < Math.min(segBodyStart + 1024 * 256, limit - 4)) {
+                const id4 = readId4(pos);
+                if (id4 === INFO_ID) {
+                    pos += 4;
+                    const sv = readVint(pos); pos += sv.len;
+                    infoBodyStart = pos;
+                    infoBodyEnd = pos + sv.val;
+                    break;
+                }
+                // 다른 최상위 요소이면 건너뛰기
+                pos += 4;
+                if (pos >= limit) break;
+                const sv = readVint(pos); pos += sv.len + sv.val;
+            }
+            if (infoBodyStart < 0) return blob;
+
+            // Info 안에서 TimecodeScale 읽기 (기본 1000000 = 1ms)
+            let timecodeScale = 1000000;
+            let durationPos = -1, durationSizeCode = 0;
+            pos = infoBodyStart;
+            while (pos < infoBodyEnd - 2) {
+                const id2 = readId2(pos);
+                if (id2 === DUR_ID) {
+                    durationPos = pos + 2;
+                    durationSizeCode = u8[durationPos];
+                    break;
+                }
+                const id3 = readId3(pos);
+                if (id3 === TIMESCALE_ID) {
+                    pos += 3;
+                    const sv = readVint(pos); pos += sv.len;
+                    let ts = 0;
+                    for (let k = 0; k < sv.val && k < 8; k++) ts = ts * 256 + u8[pos + k];
+                    if (ts > 0) timecodeScale = ts;
+                    pos += sv.val;
+                    continue;
+                }
+                // 알 수 없는 요소: 2바이트 ID 시도 후 VINT size 건너뛰기
+                pos += 2;
+                if (pos >= infoBodyEnd) break;
+                const sv = readVint(pos);
+                if (!sv || sv.val > infoBodyEnd) break;
+                pos += sv.len + sv.val;
+            }
+
+            if (durationPos < 0) return blob; // Duration 필드 없음
+
+            // Duration은 timecodeScale 단위의 float
+            // timecodeScale=1000000(1ms) → durationUnits = durationSec * 1000
+            const durationUnits = durationSec * (1e9 / timecodeScale);
+
+            if (durationSizeCode === 0x88) {
+                // 8바이트 float64
+                dv.setFloat64(durationPos + 1, durationUnits);
+                return new Blob([u8], { type: type || 'video/webm' });
+            }
+            if (durationSizeCode === 0x84) {
+                // 4바이트 float32
+                dv.setFloat32(durationPos + 1, durationUnits);
+                return new Blob([u8], { type: type || 'video/webm' });
             }
         } catch (e) {
             console.warn('[MediaDuration] WebM duration patch failed', e);

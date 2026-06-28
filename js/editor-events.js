@@ -1916,14 +1916,19 @@ function setExportClipGains(wired, baseVol, start, end, tIn, tOut) {
     if (wired.monitorGain) wired.monitorGain.gain.value = mix;
 }
 
-/** 타임라인 오디오/비디오 요소를 Web Audio에 직접 연결 (복제 디코더 없음) */
+/** 렌더링 전용 독립 Audio 요소를 새로 생성해 Web Audio에 연결.
+ *  동일 요소에 createMediaElementSource 재호출 불가 문제 원천 차단. */
 async function wireExportAudioTrack(track, audioCtx, dest) {
     if (!track?.audio?.src) return null;
-    const el = track.audio;
-    if (el.__exportWired) return null;
-    applyExportMediaCrossOrigin(el, el.src);
+    const src = track.audio.src;
+    // 내보내기 전용 독립 오디오 요소 생성 (기존 타임라인 요소 재사용 금지)
+    const el = new Audio();
+    applyExportMediaCrossOrigin(el, src);
+    el.src = src;
+    el.preload = 'auto';
     el.loop = true;
     el.muted = false;
+    el.load();
     await waitExportMediaReady(el);
     attachExportMediaLoopRecovery(el, () => {
         const tIn = track.transitionIn ? 0.25 : 0;
@@ -1935,34 +1940,49 @@ async function wireExportAudioTrack(track, audioCtx, dest) {
     const { recordGain, monitorGain } = createExportGainPair(audioCtx, dest);
     source.connect(recordGain);
     source.connect(monitorGain);
-    el.__exportWired = true;
-    return { track, el, gain: recordGain, monitorGain, source, timelineOwned: true };
+    // timelineOwned: false → 기존 track.audio는 건드리지 않음, 독립 el만 정리
+    return { track, el, gain: recordGain, monitorGain, source, timelineOwned: false };
 }
 
+/** 렌더링 전용 독립 Video 요소를 새로 생성해 Web Audio에 연결.
+ *  캔버스 비디오 요소는 시각 렌더링에만 사용, 오디오 캡처는 전용 요소로 분리. */
 async function wireExportVideoAudio(obj, videoEl, audioCtx, dest) {
     const src = videoEl.src || videoEl.currentSrc;
     if (!src) return null;
-    const el = videoEl;
-    if (el.__exportWired) return null;
+    // 내보내기 전용 독립 비디오 요소 생성 (기존 캔버스 요소 재사용 금지)
+    const el = document.createElement('video');
     applyExportMediaCrossOrigin(el, src);
-    if (!el.crossOrigin && videoEl.crossOrigin) el.crossOrigin = videoEl.crossOrigin;
+    el.src = src;
+    el.playsInline = true;
     el.loop = true;
+    el.muted = false;
+    el.load();
+    // loadedmetadata 대기: duration이 확정된 뒤 Web Audio에 연결해야 정확한 루프 계산 가능
+    await new Promise(resolve => {
+        if (el.readyState >= 1) { resolve(); return; }
+        const done = () => { el.removeEventListener('loadedmetadata', done); el.removeEventListener('error', done); resolve(); };
+        el.addEventListener('loadedmetadata', done);
+        el.addEventListener('error', done);
+        setTimeout(resolve, 5000);
+    });
     await waitExportMediaReady(el);
+    // inherentDuration: 원본 obj 값 우선, 없으면 새로 로드된 el.duration 사용
+    const inherentDuration = obj.inherentDuration || el.duration || 1;
     attachExportMediaLoopRecovery(el, () => {
         const tIn = obj.transitionIn ? 0.25 : 0;
         const tOut = obj.transitionOut ? 0.25 : 0;
         if (currentTime < (obj.startTime - tIn) || currentTime > (obj.endTime + tOut)) return 0;
         let actualTime = currentTime - obj.startTime + (obj.trimStart || 0);
         if (actualTime < 0) actualTime = 0;
-        const inherent = obj.inherentDuration || el.duration || 1;
-        return (actualTime % inherent) * (obj.playbackRate || 1);
+        return (actualTime % inherentDuration) * (obj.playbackRate || 1);
     });
     const source = audioCtx.createMediaElementSource(el);
     const { recordGain, monitorGain } = createExportGainPair(audioCtx, dest);
     source.connect(recordGain);
     source.connect(monitorGain);
-    el.__exportWired = true;
-    return { obj, el, gain: recordGain, monitorGain, source, timelineOwned: true };
+    // timelineOwned: false → 독립 el만 정리, 캔버스 비디오 요소는 건드리지 않음
+    // inherentDuration을 저장해 syncExportRecordingMedia에서 정확한 loopedTime 계산
+    return { obj, el, gain: recordGain, monitorGain, source, timelineOwned: false, inherentDuration };
 }
 
 function restoreTimelineAudioAfterExport(track, prevEl) {
@@ -2182,7 +2202,8 @@ window.syncExportRecordingMedia = function () {
         const tOut = track.transitionOut ? 0.25 : 0;
         setExportClipGains(wired, track.baseVolume, start, end, tIn, tOut);
         const active = currentTime >= (start - tIn) && currentTime <= (end + tOut);
-        if (active && isTimelinePlaying) {
+        // isTimelinePlaying 조건 제거: 렌더링 중 항상 오디오 동기화 보장
+        if (active) {
             const localTime = Math.max(0, currentTime - start + (track.trimStart || 0));
             if (el.paused) {
                 el.currentTime = localTime;
@@ -2202,10 +2223,11 @@ window.syncExportRecordingMedia = function () {
         const tOut = obj.transitionOut ? 0.25 : 0;
         setExportClipGains(wired, obj.baseVolume, start, end, tIn, tOut);
         const active = currentTime >= (start - tIn) && currentTime <= (end + tOut);
-        if (active && isTimelinePlaying) {
+        // isTimelinePlaying 조건 제거: 렌더링 중 항상 비디오 오디오 동기화 보장
+        if (active) {
             let actualTime = currentTime - start + (obj.trimStart || 0);
             if (actualTime < 0) actualTime = 0;
-            const inherent = obj.inherentDuration || el.duration || 1;
+            const inherent = wired.inherentDuration || obj.inherentDuration || el.duration || 1;
             const loopedTime = (actualTime % inherent) * (obj.playbackRate || 1);
             el.playbackRate = obj.playbackRate || 1;
             if (el.paused) {

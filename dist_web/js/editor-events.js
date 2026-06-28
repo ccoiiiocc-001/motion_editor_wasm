@@ -134,7 +134,10 @@ function saveParticleStateToStorage() {
             opac: pState[k].opac,
             blur: pState[k].blur,
             useCol: pState[k].useCol,
-            colVal: pState[k].colVal
+            colVal: pState[k].colVal,
+            up: pState[k].up,
+            down: pState[k].down,
+            grow: pState[k].grow
         };
     });
     localStorage.setItem('motion_editor_particle_state_v3', JSON.stringify(storageState));
@@ -288,9 +291,8 @@ function renderPopupLoop() {
             waveAnalyser.getByteFrequencyData(waveDataArray);
             freqData = waveDataArray;
         } else if (isAudio) {
-            // Audio mode, but paused/stopped. Show quiet/flat baseline.
-            freqData = new Uint8Array(count);
-            freqData.fill(0); // quiet in frequency domain
+            // Audio mode, but paused/stopped. Hide waveform entirely.
+            freqData = null; // don't draw anything before playback starts
         } else {
             const len = count;
             freqData = new Uint8Array(len);
@@ -866,70 +868,124 @@ function drawWaveform(ctx, data, shape, colorMode, w, h) {
             }
         }
     } else if (shape === 'line' || shape === 'wave') {
-        let radius = Math.min(realW, realH) * 0.2;
+        // Horizontal linear waveform: line moves up/down based on audio volume
         let useData = symData;
-        
-        ctx.beginPath();
-        for (let i = 0; i <= useData.length; i++) {
-            let idx = i % useData.length;
-            let val = useData[idx] / 255.0;
-            let barH = val * (Math.min(realW, realH) * 0.25);
-            let rads = (Math.PI * 2 / useData.length) * i - Math.PI / 2;
-            let ex = Math.cos(rads) * (radius + barH);
-            let ey = Math.sin(rads) * (radius + barH);
+        let maxAmplitude = realH * 0.45; // max vertical displacement from center
 
-            if (i === 0) ctx.moveTo(ex, ey);
-            else ctx.lineTo(ex, ey);
+        // Build stroke color / fill gradient
+        let lineStrokeStyle = baseColor;
+        let lineFillStyle = baseColor;
+        if (colorMode === 'rainbow') {
+            let grad = ctx.createLinearGradient(startX, 0, startX + realW, 0);
+            grad.addColorStop(0, 'red'); grad.addColorStop(0.25, 'yellow');
+            grad.addColorStop(0.5, 'lime'); grad.addColorStop(0.75, 'cyan');
+            grad.addColorStop(1, 'blue');
+            lineStrokeStyle = grad;
+            lineFillStyle = grad;
+        } else if (colorMode === 'gradient') {
+            let grad = ctx.createLinearGradient(startX, 0, startX + realW, 0);
+            grad.addColorStop(0, 'rgba(255,255,255,0)');
+            grad.addColorStop(0.5, baseColor);
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            lineStrokeStyle = grad;
+            lineFillStyle = grad;
+        } else if (colorMode === 'tier3') {
+            // Color based on amplitude: blue=low, green=mid, pink=high
+            // We'll apply per-segment coloring below
+            lineStrokeStyle = null;
+            lineFillStyle = null;
         }
-        ctx.closePath();
 
         if (shape === 'wave') {
-            if (colorMode === 'rainbow') {
-                let grad = ctx.createRadialGradient(0, 0, radius, 0, 0, radius + (Math.min(realW, realH) * 0.25));
-                grad.addColorStop(0, 'red'); grad.addColorStop(0.5, 'lime'); grad.addColorStop(1, 'blue');
-                ctx.fillStyle = grad;
+            // Filled wave: draw path down to baseline and back
+            // Canvas Y increases downward, so negate val to keep high amplitude going UP
+            ctx.beginPath();
+            for (let i = 0; i < useData.length; i++) {
+                let val = (useData[i] / 255.0) * 2 - 1; // -1 to +1
+                let x = startX + (i / (useData.length - 1)) * realW;
+                let y = -val * maxAmplitude; // negate: up = negative Y in canvas
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            // Close path along baseline
+            ctx.lineTo(startX + realW, 0);
+            ctx.lineTo(startX, 0);
+            ctx.closePath();
+
+            if (colorMode === 'rainbow' || colorMode === 'gradient') {
+                ctx.fillStyle = lineFillStyle;
             } else if (colorMode === 'tier3') {
-                let grad = ctx.createLinearGradient(0, -realH/2, 0, realH/2);
-                grad.addColorStop(0, '#ff7ed9');     // High (Pink) at top
-                grad.addColorStop(0.3, '#ff7ed9');
-                grad.addColorStop(0.3, '#03ff6d');  // Mid (Neon green) in middle
-                grad.addColorStop(0.7, '#03ff6d');
-                grad.addColorStop(0.7, '#605eff');  // Low (Indigo/blue) at bottom
-                grad.addColorStop(1, '#605eff');
+                let grad = ctx.createLinearGradient(0, -maxAmplitude, 0, maxAmplitude);
+                grad.addColorStop(0, '#ff7ed9');
+                grad.addColorStop(0.35, '#03ff6d');
+                grad.addColorStop(0.5, '#605eff');
+                grad.addColorStop(0.65, '#03ff6d');
+                grad.addColorStop(1, '#ff7ed9');
                 ctx.fillStyle = grad;
-                ctx.globalAlpha = 0.5;
             } else {
                 ctx.fillStyle = baseColor;
-                ctx.globalAlpha = 0.5;
             }
+            ctx.globalAlpha = 0.55;
             ctx.fill();
             ctx.globalAlpha = 1.0;
-        } else {
-            // shape === 'line'
-            if (colorMode === 'rainbow') {
-                let grad = ctx.createLinearGradient(-realW/2, 0, realW/2, 0);
-                grad.addColorStop(0, 'red'); grad.addColorStop(0.5, 'lime'); grad.addColorStop(1, 'blue');
-                ctx.strokeStyle = grad;
-            } else if (colorMode === 'gradient') {
-                let grad = ctx.createRadialGradient(0, 0, radius, 0, 0, radius + (Math.min(realW, realH) * 0.25));
-                grad.addColorStop(0, baseColor); grad.addColorStop(1, 'rgba(255,255,255,0)');
-                ctx.strokeStyle = grad;
-            } else if (colorMode === 'tier3') {
-                let grad = ctx.createLinearGradient(0, -realH/2, 0, realH/2);
-                grad.addColorStop(0, '#ff7ed9');     // High (Pink) at top
-                grad.addColorStop(0.3, '#ff7ed9');
-                grad.addColorStop(0.3, '#03ff6d');  // Mid (Neon green) in middle
-                grad.addColorStop(0.7, '#03ff6d');
-                grad.addColorStop(0.7, '#605eff');  // Low (Indigo/blue) at bottom
-                grad.addColorStop(1, '#605eff');
-                ctx.strokeStyle = grad;
-            } else {
-                ctx.strokeStyle = baseColor;
+
+            // Draw top outline stroke
+            ctx.beginPath();
+            for (let i = 0; i < useData.length; i++) {
+                let val = (useData[i] / 255.0) * 2 - 1;
+                let x = startX + (i / (useData.length - 1)) * realW;
+                let y = -val * maxAmplitude; // negate: up = negative Y in canvas
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
             }
+            ctx.strokeStyle = lineStrokeStyle !== null ? lineStrokeStyle : baseColor;
             ctx.lineWidth = drawWidth;
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
             ctx.stroke();
+        } else {
+            // shape === 'line': horizontal line that moves with audio amplitude
+            // Draw per-segment with tier3 support
+            if (colorMode === 'tier3') {
+                // Draw each segment colored by amplitude
+                for (let i = 0; i < useData.length - 1; i++) {
+                    let val0 = useData[i] / 255.0;
+                    let val1 = useData[i + 1] / 255.0;
+                    let x0 = startX + (i / (useData.length - 1)) * realW;
+                    let y0 = -(val0 * 2 - 1) * maxAmplitude; // negate: up = negative Y
+                    let x1 = startX + ((i + 1) / (useData.length - 1)) * realW;
+                    let y1 = -(val1 * 2 - 1) * maxAmplitude; // negate: up = negative Y
+
+                    let avgVal = (val0 + val1) / 2;
+                    let segColor;
+                    if (avgVal < 0.33) segColor = '#605eff';        // low: indigo/blue
+                    else if (avgVal < 0.66) segColor = '#03ff6d';   // mid: neon green
+                    else segColor = '#ff7ed9';                       // high: pink
+
+                    ctx.beginPath();
+                    ctx.moveTo(x0, y0);
+                    ctx.lineTo(x1, y1);
+                    ctx.strokeStyle = segColor;
+                    ctx.lineWidth = drawWidth;
+                    ctx.lineJoin = 'round';
+                    ctx.lineCap = 'round';
+                    ctx.stroke();
+                }
+            } else {
+                ctx.beginPath();
+                for (let i = 0; i < useData.length; i++) {
+                    let val = (useData[i] / 255.0) * 2 - 1; // -1 to +1, centered at 0
+                    let x = startX + (i / (useData.length - 1)) * realW;
+                    let y = -val * maxAmplitude; // negate: up = negative Y in canvas
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.strokeStyle = lineStrokeStyle;
+                ctx.lineWidth = drawWidth;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
         }
     } else if (shape === 'circle') {
         let radius = Math.min(realW, realH) * 0.2;
@@ -961,29 +1017,55 @@ function drawWaveform(ctx, data, shape, colorMode, w, h) {
             ctx.stroke();
         }
     } else if (shape === 'dots') {
-        let radius = Math.min(realW, realH) * 0.2;
         let useData = symData;
-        for (let i = 0; i < useData.length; i++) {
+        let barW = realW / count;
+        let maxH = realH * 0.45;
+        let xOffset = startX;
+        let yOffset = realH / 2; // bottom baseline
+
+        // Setup dot properties
+        let dotRadius = Math.max(2, drawWidth / 2);
+        let dotSpacing = dotRadius * 2.5; // space between dot centers
+
+        let dotFillStyle = baseColor;
+        if (colorMode === 'gradient') {
+            let grad = ctx.createLinearGradient(0, yOffset, 0, yOffset - maxH);
+            grad.addColorStop(0, baseColor);
+            grad.addColorStop(1, 'rgba(255,255,255,0.2)');
+            dotFillStyle = grad;
+        }
+
+        for (let i = 0; i < count; i++) {
             let val = useData[i] / 255.0;
-            let barH = val * (Math.min(realW, realH) * 0.25);
-            let rads = (Math.PI * 2 / useData.length) * i - Math.PI / 2;
-            let dotX = Math.cos(rads) * (radius + barH);
-            let dotY = Math.sin(rads) * (radius + barH);
+            let center = (count - 1) / 2;
+            let sigma = (count - 1) / 5.5;
+            let gZero = Math.exp(-0.5 * Math.pow((0 - center) / sigma, 2));
+            let bellFactor = (Math.exp(-0.5 * Math.pow((i - center) / sigma, 2)) - gZero) / (1 - gZero);
+            let barH = val * maxH * bellFactor;
 
-            let itemColor = baseColor;
-            if (colorMode === 'tier3') {
-                let ratio = Math.abs(i - useData.length / 2) / (useData.length / 2);
-                if (ratio < 0.3) itemColor = '#605eff';
-                else if (ratio < 0.7) itemColor = '#03ff6d';
-                else itemColor = '#ff7ed9';
-            } else if (colorMode === 'rainbow') {
-                itemColor = `hsl(${(i / useData.length) * 360}, 100%, 50%)`;
+            // Center of the bar column
+            let x = xOffset + i * barW + barW / 2;
+
+            let currY = yOffset;
+            while (currY >= yOffset - barH) {
+                let itemColor = dotFillStyle;
+                if (colorMode === 'tier3') {
+                    let heightRatio = (yOffset - currY) / (maxH || 1);
+                    if (heightRatio < 0.35) itemColor = '#605eff';
+                    else if (heightRatio < 0.70) itemColor = '#03ff6d';
+                    else itemColor = '#ff7ed9';
+                } else if (colorMode === 'rainbow') {
+                    itemColor = `hsl(${(i / count) * 360}, 100%, 50%)`;
+                }
+
+                ctx.fillStyle = itemColor;
+                ctx.beginPath();
+                ctx.arc(x, currY, dotRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                currY -= dotSpacing;
+                if (dotSpacing <= 0) break;
             }
-            ctx.fillStyle = itemColor;
-
-            ctx.beginPath();
-            ctx.arc(dotX, dotY, Math.max(2, drawWidth / 2), 0, Math.PI * 2);
-            ctx.fill();
         }
     } else if (shape === 'stamp') {
         let radius = Math.min(realW, realH) * 0.2;
@@ -1328,8 +1410,29 @@ canvas.on('selection:created', () => window.updatePropertyPanel());
 canvas.on('selection:updated', () => window.updatePropertyPanel());
 canvas.on('selection:cleared', () => { if (subtitleTextInput) subtitleTextInput.value = ''; window.updatePropertyPanel(); });
 canvas.on('object:modified', e => { const obj = e.target; if (obj) { obj.baseLeft = obj.left; obj.baseTop = obj.top; obj.baseScaleX = obj.scaleX; obj.baseScaleY = obj.scaleY; obj.baseAngle = obj.angle; window.updatePropertyPanel(obj); window.saveHistorySnapshot(); } });
-if (propOpacity) propOpacity.oninput = () => updateObj('opacity', propOpacity.value, true);
-if (propAngle) propAngle.oninput = () => updateObj('angle', parseInt(propAngle.value));
+const propOpacityNum = document.getElementById('propOpacityNum');
+const propAngleNum = document.getElementById('propAngleNum');
+if (propOpacity) propOpacity.oninput = () => {
+    updateObj('opacity', propOpacity.value, true);
+    if (propOpacityNum) propOpacityNum.value = propOpacity.value;
+};
+if (propOpacityNum) propOpacityNum.oninput = () => {
+    const v = Math.max(0, Math.min(100, parseInt(propOpacityNum.value) || 0));
+    propOpacityNum.value = v;
+    if (propOpacity) propOpacity.value = v;
+    updateObj('opacity', v, true);
+};
+if (propAngle) propAngle.oninput = () => {
+    updateObj('angle', parseInt(propAngle.value));
+    if (propAngleNum) propAngleNum.value = propAngle.value;
+};
+if (propAngleNum) propAngleNum.oninput = () => {
+    const v = Math.max(-180, Math.min(180, parseInt(propAngleNum.value) || 0));
+    propAngleNum.value = v;
+    if (propAngle) propAngle.value = v;
+    updateObj('angle', v);
+};
+
 if (propScale) { propScale.oninput = () => { updateObj('scaleX', propScale.value, true); updateObj('scaleY', propScale.value, true); propScaleX.value = propScale.value; propScaleY.value = propScale.value; }; }
 if (propScaleX) propScaleX.oninput = () => updateObj('scaleX', propScaleX.value, true);
 if (propScaleY) propScaleY.oninput = () => updateObj('scaleY', propScaleY.value, true);
@@ -1345,7 +1448,7 @@ if (shadowBlur) shadowBlur.oninput = updateShadow;
 if (shadowColor) shadowColor.oninput = updateShadow;
 if (propVolume) { propVolume.oninput = () => { const target = canvas.getActiveObject() || window.lastSelectedObj; if (target) { const vol = Math.max(0, Math.min(1, propVolume.value / 100)); target.baseVolume = vol; if (target.isVideo && target.getElement()) { target.getElement().volume = vol; } else if (target.audio) { target.audio.volume = vol; } } }; }
 
-const snapshotInputs = [propOpacity, propAngle, propScale, propScaleX, propScaleY, propFill, propFontSize, propStrokeWidth, propStroke, propCharSpacing, propLineHeight, subtitleTextInput, shadowOffset, shadowBlur, shadowColor, propVolume];
+const snapshotInputs = [propOpacity, propOpacityNum, propAngle, propAngleNum, propScale, propScaleX, propScaleY, propFill, propFontSize, propStrokeWidth, propStroke, propCharSpacing, propLineHeight, subtitleTextInput, shadowOffset, shadowBlur, shadowColor, propVolume];
 snapshotInputs.forEach(el => { if (el) el.addEventListener('change', () => { if (typeof window.saveHistorySnapshot === 'function') window.saveHistorySnapshot(); }); });
 if (propTrackIndex) {
     propTrackIndex.onchange = () => {
@@ -1517,11 +1620,189 @@ if (alignRightBtn) { alignRightBtn.onclick = () => { const obj = canvas.getActiv
 const fontNormalBtn = document.getElementById('fontNormalBtn');
 const fontBoldBtn = document.getElementById('fontBoldBtn');
 const fontItalicBtn = document.getElementById('fontItalicBtn');
-if (fontNormalBtn) { fontNormalBtn.onclick = () => { const obj = canvas.getActiveObject(); if (obj && obj.type === 'i-text') { window.saveHistorySnapshot(); obj.set({ fontWeight: 'normal', fontStyle: 'normal' }); canvas.requestRenderAll(); if (window.updatePropertyPanel) window.updatePropertyPanel(obj); } }; }
-if (fontBoldBtn) { fontBoldBtn.onclick = () => { const obj = canvas.getActiveObject(); if (obj && obj.type === 'i-text') { window.saveHistorySnapshot(); obj.set({ fontWeight: obj.fontWeight === 'bold' ? 'normal' : 'bold' }); canvas.requestRenderAll(); if (window.updatePropertyPanel) window.updatePropertyPanel(obj); } }; }
-if (fontItalicBtn) { fontItalicBtn.onclick = () => { const obj = canvas.getActiveObject(); if (obj && obj.type === 'i-text') { window.saveHistorySnapshot(); obj.set({ fontStyle: obj.fontStyle === 'italic' ? 'normal' : 'italic' }); canvas.requestRenderAll(); if (window.updatePropertyPanel) window.updatePropertyPanel(obj); } }; }
-if (savePresetBtn) { savePresetBtn.onclick = () => { const obj = canvas.getActiveObject(); if (!obj || obj.type !== 'i-text') { window.showToast('자막을 선택하세요'); return; } const name = presetNameInput.value.trim(); if (!name) { window.showToast('프리셋 이름을 입력하세요'); return; } const bOp = obj.baseOpacity !== undefined ? obj.baseOpacity : obj.opacity; const bSx = obj.baseScaleX !== undefined ? obj.baseScaleX : obj.scaleX; const bSy = obj.baseScaleY !== undefined ? obj.baseScaleY : obj.scaleY; const bAng = obj.baseAngle !== undefined ? obj.baseAngle : obj.angle; const bL = obj.baseLeft !== undefined ? obj.baseLeft : obj.left; const bT = obj.baseTop !== undefined ? obj.baseTop : obj.top; subtitlePresets[name] = { text: obj.text, fontFamily: obj.fontFamily, fontSize: obj.fontSize, fill: obj.fill, charSpacing: obj.charSpacing, strokeWidth: obj.strokeWidth, stroke: obj.stroke, lineHeight: obj.lineHeight, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle, textAlign: obj.textAlign, left: bL, top: bT, angle: bAng, scaleX: bSx, scaleY: bSy, opacity: bOp, baseLeft: bL, baseTop: bT, baseAngle: bAng, baseScaleX: bSx, baseScaleY: bSy, baseOpacity: bOp, shadow: obj.shadow ? { blur: obj.shadow.blur, color: obj.shadow.color, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY } : null }; localStorage.setItem('subtitlePresets', JSON.stringify(subtitlePresets)); refreshPresetList(); presetSelect.value = name; window.showToast('프리셋 저장 완료'); }; }
-if (loadPresetBtn) { loadPresetBtn.onclick = () => { const obj = canvas.getActiveObject(); if (!obj || obj.type !== 'i-text') { window.showToast('자막을 선택하세요'); return; } const name = presetSelect.value; if (!name || !subtitlePresets[name]) { window.showToast('프리셋을 선택하세요'); return; } window.saveHistorySnapshot(); const p = subtitlePresets[name]; const bOp = p.baseOpacity !== undefined ? p.baseOpacity : (p.opacity ? p.opacity : 1); const bSx = p.baseScaleX !== undefined ? p.baseScaleX : (p.scaleX !== undefined ? p.scaleX : 1); const bSy = p.baseScaleY !== undefined ? p.baseScaleY : (p.scaleY !== undefined ? p.scaleY : 1); const bAng = p.baseAngle !== undefined ? p.baseAngle : (p.angle !== undefined ? p.angle : 0); const bL = p.baseLeft !== undefined ? p.baseLeft : (p.left !== undefined ? p.left : obj.left); const bT = p.baseTop !== undefined ? p.baseTop : (p.top !== undefined ? p.top : obj.top); obj.set({ text: p.text !== undefined ? p.text : obj.text, fontFamily: p.fontFamily, fontSize: p.fontSize, fill: p.fill, charSpacing: p.charSpacing, strokeWidth: p.strokeWidth, stroke: p.stroke, lineHeight: p.lineHeight, fontWeight: p.fontWeight || 'normal', fontStyle: p.fontStyle || 'normal', textAlign: p.textAlign || 'left', opacity: bOp, baseOpacity: bOp, scaleX: bSx, baseScaleX: bSx, scaleY: bSy, baseScaleY: bSy, angle: bAng, baseAngle: bAng, left: bL, baseLeft: bL, top: bT, baseTop: bT }); if (p.shadow) { obj.set('shadow', new fabric.Shadow({ blur: p.shadow.blur !== undefined ? p.shadow.blur : 0, offsetX: p.shadow.offsetX !== undefined ? p.shadow.offsetX : (p.shadow.blur || 0), offsetY: p.shadow.offsetY !== undefined ? p.shadow.offsetY : (p.shadow.blur || 0), color: p.shadow.color })); } else { obj.set('shadow', null); } canvas.requestRenderAll(); window.updatePropertyPanel(obj); window.showToast('프리셋 적용 완료'); }; }
+if (fontNormalBtn) {
+    fontNormalBtn.onclick = () => {
+        const obj = canvas.getActiveObject();
+        if (obj && obj.type === 'i-text') {
+            window.saveHistorySnapshot();
+            if (obj.isEditing) {
+                obj.setSelectionStyles({ fontWeight: 'normal', fontStyle: 'normal' });
+            } else {
+                obj.set({ fontWeight: 'normal', fontStyle: 'normal' });
+            }
+            canvas.requestRenderAll();
+            if (window.updatePropertyPanel) window.updatePropertyPanel(obj);
+        }
+    };
+}
+if (fontBoldBtn) {
+    fontBoldBtn.onclick = () => {
+        const obj = canvas.getActiveObject();
+        if (obj && obj.type === 'i-text') {
+            window.saveHistorySnapshot();
+            let currentVal = '';
+            if (obj.isEditing) {
+                const styles = obj.getSelectionStyles();
+                currentVal = (styles.length > 0 && styles[0]) ? (styles[0].fontWeight || 'normal') : (obj.fontWeight || 'normal');
+            } else {
+                currentVal = obj.fontWeight || 'normal';
+            }
+            const nextVal = (currentVal === 'bold') ? 'normal' : 'bold';
+            
+            if (obj.isEditing) {
+                obj.setSelectionStyles({ fontWeight: nextVal });
+            } else {
+                obj.set({ fontWeight: nextVal });
+            }
+            canvas.requestRenderAll();
+            if (window.updatePropertyPanel) window.updatePropertyPanel(obj);
+        }
+    };
+}
+if (fontItalicBtn) {
+    fontItalicBtn.onclick = () => {
+        const obj = canvas.getActiveObject();
+        if (obj && obj.type === 'i-text') {
+            window.saveHistorySnapshot();
+            let currentVal = '';
+            if (obj.isEditing) {
+                const styles = obj.getSelectionStyles();
+                currentVal = (styles.length > 0 && styles[0]) ? (styles[0].fontStyle || 'normal') : (obj.fontStyle || 'normal');
+            } else {
+                currentVal = obj.fontStyle || 'normal';
+            }
+            const nextVal = (currentVal === 'italic') ? 'normal' : 'italic';
+            
+            if (obj.isEditing) {
+                obj.setSelectionStyles({ fontStyle: nextVal });
+            } else {
+                obj.set({ fontStyle: nextVal });
+            }
+            canvas.requestRenderAll();
+            if (window.updatePropertyPanel) window.updatePropertyPanel(obj);
+        }
+    };
+}
+if (savePresetBtn) {
+    savePresetBtn.onclick = () => {
+        const obj = canvas.getActiveObject();
+        if (!obj || obj.type !== 'i-text') {
+            window.showToast('자막을 선택하세요');
+            return;
+        }
+        const name = presetNameInput.value.trim();
+        if (!name) {
+            window.showToast('프리셋 이름을 입력하세요');
+            return;
+        }
+        const bOp = obj.baseOpacity !== undefined ? obj.baseOpacity : obj.opacity;
+        const bSx = obj.baseScaleX !== undefined ? obj.baseScaleX : obj.scaleX;
+        const bSy = obj.baseScaleY !== undefined ? obj.baseScaleY : obj.scaleY;
+        const bAng = obj.baseAngle !== undefined ? obj.baseAngle : obj.angle;
+        const bL = obj.baseLeft !== undefined ? obj.baseLeft : obj.left;
+        const bT = obj.baseTop !== undefined ? obj.baseTop : obj.top;
+        
+        subtitlePresets[name] = {
+            text: obj.text,
+            fontFamily: obj.fontFamily,
+            fontSize: obj.fontSize,
+            fill: obj.fill,
+            charSpacing: obj.charSpacing,
+            strokeWidth: obj.strokeWidth,
+            stroke: obj.stroke,
+            lineHeight: obj.lineHeight,
+            fontWeight: obj.fontWeight,
+            fontStyle: obj.fontStyle,
+            textAlign: obj.textAlign,
+            left: bL,
+            top: bT,
+            angle: bAng,
+            scaleX: bSx,
+            scaleY: bSy,
+            opacity: bOp,
+            baseLeft: bL,
+            baseTop: bT,
+            baseAngle: bAng,
+            baseScaleX: bSx,
+            baseScaleY: bSy,
+            baseOpacity: bOp,
+            shadow: obj.shadow ? {
+                blur: obj.shadow.blur,
+                color: obj.shadow.color,
+                offsetX: obj.shadow.offsetX,
+                offsetY: obj.shadow.offsetY
+            } : null,
+            styles: obj.styles ? JSON.parse(JSON.stringify(obj.styles)) : null
+        };
+        localStorage.setItem('subtitlePresets', JSON.stringify(subtitlePresets));
+        refreshPresetList();
+        presetSelect.value = name;
+        window.showToast('프리셋 저장 완료');
+    };
+}
+if (loadPresetBtn) {
+    loadPresetBtn.onclick = () => {
+        const obj = canvas.getActiveObject();
+        if (!obj || obj.type !== 'i-text') {
+            window.showToast('자막을 선택하세요');
+            return;
+        }
+        const name = presetSelect.value;
+        if (!name || !subtitlePresets[name]) {
+            window.showToast('프리셋을 선택하세요');
+            return;
+        }
+        window.saveHistorySnapshot();
+        const p = subtitlePresets[name];
+        const bOp = p.baseOpacity !== undefined ? p.baseOpacity : (p.opacity ? p.opacity : 1);
+        const bSx = p.baseScaleX !== undefined ? p.baseScaleX : (p.scaleX !== undefined ? p.scaleX : 1);
+        const bSy = p.baseScaleY !== undefined ? p.baseScaleY : (p.scaleY !== undefined ? p.scaleY : 1);
+        const bAng = p.baseAngle !== undefined ? p.baseAngle : (p.angle !== undefined ? p.angle : 0);
+        const bL = p.baseLeft !== undefined ? p.baseLeft : (p.left !== undefined ? p.left : obj.left);
+        const bT = p.baseTop !== undefined ? p.baseTop : (p.top !== undefined ? p.top : obj.top);
+        
+        obj.set({
+            text: p.text !== undefined ? p.text : obj.text,
+            styles: p.styles ? JSON.parse(JSON.stringify(p.styles)) : {},
+            fontFamily: p.fontFamily,
+            fontSize: p.fontSize,
+            fill: p.fill,
+            charSpacing: p.charSpacing,
+            strokeWidth: p.strokeWidth,
+            stroke: p.stroke,
+            lineHeight: p.lineHeight,
+            fontWeight: p.fontWeight || 'normal',
+            fontStyle: p.fontStyle || 'normal',
+            textAlign: p.textAlign || 'left',
+            opacity: bOp,
+            baseOpacity: bOp,
+            scaleX: bSx,
+            baseScaleX: bSx,
+            scaleY: bSy,
+            baseScaleY: bSy,
+            angle: bAng,
+            baseAngle: bAng,
+            left: bL,
+            baseLeft: bL,
+            top: bT,
+            baseTop: bT
+        });
+        if (p.shadow) {
+            obj.set('shadow', new fabric.Shadow({
+                blur: p.shadow.blur !== undefined ? p.shadow.blur : 0,
+                offsetX: p.shadow.offsetX !== undefined ? p.shadow.offsetX : (p.shadow.blur || 0),
+                offsetY: p.shadow.offsetY !== undefined ? p.shadow.offsetY : (p.shadow.blur || 0),
+                color: p.shadow.color
+            }));
+        } else {
+            obj.set('shadow', null);
+        }
+        canvas.requestRenderAll();
+        if (typeof window.updateLayerVisibility === 'function') window.updateLayerVisibility();
+        window.updatePropertyPanel(obj);
+        window.showToast('프리셋 적용 완료');
+    };
+}
 if (deletePresetBtn) { deletePresetBtn.onclick = () => { const name = presetSelect.value; if (!name) return; delete subtitlePresets[name]; localStorage.setItem('subtitlePresets', JSON.stringify(subtitlePresets)); refreshPresetList(); window.showToast('프리셋 삭제 완료'); }; }
 if (bgBtn) bgBtn.onclick = () => { if (bgInput) bgInput.value = ''; bgInput.click(); };
 if (videoBtn) videoBtn.onclick = () => { if (videoInput) videoInput.value = ''; videoInput.click(); };
@@ -1635,14 +1916,19 @@ function setExportClipGains(wired, baseVol, start, end, tIn, tOut) {
     if (wired.monitorGain) wired.monitorGain.gain.value = mix;
 }
 
-/** 타임라인 오디오/비디오 요소를 Web Audio에 직접 연결 (복제 디코더 없음) */
+/** 렌더링 전용 독립 Audio 요소를 새로 생성해 Web Audio에 연결.
+ *  동일 요소에 createMediaElementSource 재호출 불가 문제 원천 차단. */
 async function wireExportAudioTrack(track, audioCtx, dest) {
     if (!track?.audio?.src) return null;
-    const el = track.audio;
-    if (el.__exportWired) return null;
-    applyExportMediaCrossOrigin(el, el.src);
+    const src = track.audio.src;
+    // 내보내기 전용 독립 오디오 요소 생성 (기존 타임라인 요소 재사용 금지)
+    const el = new Audio();
+    applyExportMediaCrossOrigin(el, src);
+    el.src = src;
+    el.preload = 'auto';
     el.loop = true;
     el.muted = false;
+    el.load();
     await waitExportMediaReady(el);
     attachExportMediaLoopRecovery(el, () => {
         const tIn = track.transitionIn ? 0.25 : 0;
@@ -1654,34 +1940,49 @@ async function wireExportAudioTrack(track, audioCtx, dest) {
     const { recordGain, monitorGain } = createExportGainPair(audioCtx, dest);
     source.connect(recordGain);
     source.connect(monitorGain);
-    el.__exportWired = true;
-    return { track, el, gain: recordGain, monitorGain, source, timelineOwned: true };
+    // timelineOwned: false → 기존 track.audio는 건드리지 않음, 독립 el만 정리
+    return { track, el, gain: recordGain, monitorGain, source, timelineOwned: false };
 }
 
+/** 렌더링 전용 독립 Video 요소를 새로 생성해 Web Audio에 연결.
+ *  캔버스 비디오 요소는 시각 렌더링에만 사용, 오디오 캡처는 전용 요소로 분리. */
 async function wireExportVideoAudio(obj, videoEl, audioCtx, dest) {
     const src = videoEl.src || videoEl.currentSrc;
     if (!src) return null;
-    const el = videoEl;
-    if (el.__exportWired) return null;
+    // 내보내기 전용 독립 비디오 요소 생성 (기존 캔버스 요소 재사용 금지)
+    const el = document.createElement('video');
     applyExportMediaCrossOrigin(el, src);
-    if (!el.crossOrigin && videoEl.crossOrigin) el.crossOrigin = videoEl.crossOrigin;
+    el.src = src;
+    el.playsInline = true;
     el.loop = true;
+    el.muted = false;
+    el.load();
+    // loadedmetadata 대기: duration이 확정된 뒤 Web Audio에 연결해야 정확한 루프 계산 가능
+    await new Promise(resolve => {
+        if (el.readyState >= 1) { resolve(); return; }
+        const done = () => { el.removeEventListener('loadedmetadata', done); el.removeEventListener('error', done); resolve(); };
+        el.addEventListener('loadedmetadata', done);
+        el.addEventListener('error', done);
+        setTimeout(resolve, 5000);
+    });
     await waitExportMediaReady(el);
+    // inherentDuration: 원본 obj 값 우선, 없으면 새로 로드된 el.duration 사용
+    const inherentDuration = obj.inherentDuration || el.duration || 1;
     attachExportMediaLoopRecovery(el, () => {
         const tIn = obj.transitionIn ? 0.25 : 0;
         const tOut = obj.transitionOut ? 0.25 : 0;
         if (currentTime < (obj.startTime - tIn) || currentTime > (obj.endTime + tOut)) return 0;
         let actualTime = currentTime - obj.startTime + (obj.trimStart || 0);
         if (actualTime < 0) actualTime = 0;
-        const inherent = obj.inherentDuration || el.duration || 1;
-        return (actualTime % inherent) * (obj.playbackRate || 1);
+        return (actualTime % inherentDuration) * (obj.playbackRate || 1);
     });
     const source = audioCtx.createMediaElementSource(el);
     const { recordGain, monitorGain } = createExportGainPair(audioCtx, dest);
     source.connect(recordGain);
     source.connect(monitorGain);
-    el.__exportWired = true;
-    return { obj, el, gain: recordGain, monitorGain, source, timelineOwned: true };
+    // timelineOwned: false → 독립 el만 정리, 캔버스 비디오 요소는 건드리지 않음
+    // inherentDuration을 저장해 syncExportRecordingMedia에서 정확한 loopedTime 계산
+    return { obj, el, gain: recordGain, monitorGain, source, timelineOwned: false, inherentDuration };
 }
 
 function restoreTimelineAudioAfterExport(track, prevEl) {
@@ -1901,7 +2202,8 @@ window.syncExportRecordingMedia = function () {
         const tOut = track.transitionOut ? 0.25 : 0;
         setExportClipGains(wired, track.baseVolume, start, end, tIn, tOut);
         const active = currentTime >= (start - tIn) && currentTime <= (end + tOut);
-        if (active && isTimelinePlaying) {
+        // isTimelinePlaying 조건 제거: 렌더링 중 항상 오디오 동기화 보장
+        if (active) {
             const localTime = Math.max(0, currentTime - start + (track.trimStart || 0));
             if (el.paused) {
                 el.currentTime = localTime;
@@ -1921,10 +2223,11 @@ window.syncExportRecordingMedia = function () {
         const tOut = obj.transitionOut ? 0.25 : 0;
         setExportClipGains(wired, obj.baseVolume, start, end, tIn, tOut);
         const active = currentTime >= (start - tIn) && currentTime <= (end + tOut);
-        if (active && isTimelinePlaying) {
+        // isTimelinePlaying 조건 제거: 렌더링 중 항상 비디오 오디오 동기화 보장
+        if (active) {
             let actualTime = currentTime - start + (obj.trimStart || 0);
             if (actualTime < 0) actualTime = 0;
-            const inherent = obj.inherentDuration || el.duration || 1;
+            const inherent = wired.inherentDuration || obj.inherentDuration || el.duration || 1;
             const loopedTime = (actualTime % inherent) * (obj.playbackRate || 1);
             el.playbackRate = obj.playbackRate || 1;
             if (el.paused) {
@@ -2341,13 +2644,47 @@ if (audioInput) {
 }
 if (addTextBtn) {
     addTextBtn.onclick = () => {
-        const text = new fabric.IText(`자막 ${subtitleCount}`, { left: canvas.width / 2, top: canvas.height / 2, originX: 'center', originY: 'center', fontFamily: 'Pretendard', fontSize: 80, fill: '#000000', zIndex: 14, baseOpacity: 1, baseScaleX: 1, baseScaleY: 1, baseAngle: 0 });
-        text.baseLeft = text.left; text.baseTop = text.top; text.trackType = 'overlay'; text.layerName = `Subtitle ${subtitleCount++}`;
+        const count = window.subtitleCount || 1;
+        const text = new fabric.IText(`자막 ${count}`, {
+            left: canvas.width / 2,
+            top: canvas.height / 2,
+            originX: 'center',
+            originY: 'center',
+            fontFamily: 'Pretendard, Arial, sans-serif',
+            fontSize: 80,
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeWidth: 4,
+            zIndex: 14,
+            baseOpacity: 1,
+            baseScaleX: 1,
+            baseScaleY: 1,
+            baseAngle: 0
+        });
+        text.baseLeft = text.left;
+        text.baseTop = text.top;
+        text.trackType = 'overlay';
+        text.layerName = `Subtitle ${count}`;
+        window.subtitleCount = count + 1;
+
         const subDur = 5;
         const subIdx = 4;
-        if (window.TimelinePlacement) window.TimelinePlacement.placeClipOnTrack(text, 'overlay', subIdx, subDur, { preferredStart: currentTime }); else { text.startTime = 0; text.endTime = subDur; text.trackIndex = subIdx; }
-        canvas.add(text); canvas.setActiveObject(text); sortCanvasLayers();
-        if (typeof window.renderTracks === 'function') window.renderTracks(); window.updatePropertyPanel(); window.showToast('자막 추가 완료');
+        if (window.TimelinePlacement) {
+            window.TimelinePlacement.placeClipOnTrack(text, 'overlay', subIdx, subDur, { preferredStart: currentTime });
+        } else {
+            text.startTime = currentTime;
+            text.endTime = currentTime + subDur;
+            text.trackIndex = subIdx;
+        }
+        currentTime = text.startTime;
+        canvas.add(text);
+        canvas.setActiveObject(text);
+        sortCanvasLayers();
+        if (typeof window.updateTimelineUI === 'function') window.updateTimelineUI();
+        if (typeof window.updateLayerVisibility === 'function') window.updateLayerVisibility();
+        if (typeof window.renderTracks === 'function') window.renderTracks();
+        window.updatePropertyPanel();
+        window.showToast('자막 추가 완료');
     };
 }
 
