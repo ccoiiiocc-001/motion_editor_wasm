@@ -283,14 +283,50 @@ body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     border-radius: 4px;
     text-align: center;
 }
+.bg-color-picker-input {
+    width: 32px !important;
+    height: 26px !important;
+    padding: 0 !important;
+    border: 1px solid #666 !important;
+    border-radius: 4px !important;
+    background: none !important;
+    cursor: pointer;
+    box-sizing: border-box !important;
+    flex-shrink: 0;
+}
+.bg-white-btn {
+    width: auto !important;
+    flex: 1 !important;
+    height: 26px !important;
+    padding: 0 5px !important;
+    font-size: 11px !important;
+    white-space: nowrap;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    cursor: pointer;
+    box-sizing: border-box !important;
+    text-align: center;
+}
 .bg-transparent-btn {
     width: auto !important;
-    flex: none;
-    padding: 5px 10px !important;
-    font-size: 12px !important;
+    flex: 1 !important;
+    height: 26px !important;
+    padding: 0 5px !important;
+    font-size: 11px !important;
     white-space: nowrap;
     background: #777 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 4px !important;
+    font-weight: bold !important;
+    cursor: pointer;
+    box-sizing: border-box !important;
+    text-align: center;
 }
+
 
 button, select, input[type="text"], input[type="number"] { padding: 10px; background: #4caf50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; width: 100%; box-sizing: border-box; outline: none; transition: background 0.2s; }
 button:hover { background: #45a049; }
@@ -1256,17 +1292,74 @@ button {
 /* 상세페이지 입력폼 및 버튼 최적화 */
 #detail-dims-wrap {
     display: flex !important;
-    flex-wrap: wrap !important;
+    flex-wrap: nowrap !important;
     gap: 4px !important;
 }
 #detail-dims-wrap input {
     width: 60px !important;
-    font-size: 10px !important;
-    padding: 3px !important;
+    font-size: 11px !important;
+    padding: 5px !important;
+    height: 26px !important;
+    box-sizing: border-box !important;
 }
 #detail-height-add {
-    padding: 3px 6px !important;
-    font-size: 9px !important;
-    height: auto !important;
+    width: 80px !important;
+    font-size: 11px !important;
+    padding: 5px 0 !important;
+    height: 26px !important;
+    box-sizing: border-box !important;
     align-self: center;
 }
+
+@media (max-width: 1599px) or (max-height: 880px) {
+    #detail-dims-wrap input {
+        height: 20px !important;
+        padding: 3px !important;
+        font-size: 9px !important;
+    }
+    #detail-height-add {
+        height: 20px !important;
+        padding: 3px 0 !important;
+        font-size: 9px !important;
+    }
+    .bg-color-picker-input {
+        height: 20px !important;
+    }
+    .bg-white-btn {
+        height: 20px !important;
+        font-size: 9px !important;
+        padding: 0 3px !important;
+    }
+    .bg-transparent-btn {
+        height: 20px !important;
+        font-size: 9px !important;
+        padding: 0 3px !important;
+    }
+}
+
+@media (max-height: 720px) {
+    #detail-dims-wrap input {
+        height: 18px !important;
+        padding: 2px !important;
+        font-size: 8px !important;
+    }
+    #detail-height-add {
+        height: 18px !important;
+        padding: 2px 0 !important;
+        font-size: 8px !important;
+    }
+    .bg-color-picker-input {
+        height: 18px !important;
+    }
+    .bg-white-btn {
+        height: 18px !important;
+        font-size: 8px !important;
+        padding: 0 2px !important;
+    }
+    .bg-transparent-btn {
+        height: 18px !important;
+        font-size: 8px !important;
+        padding: 0 2px !important;
+    }
+}
+

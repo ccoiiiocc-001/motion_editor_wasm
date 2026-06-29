@@ -74,12 +74,19 @@
 
     function eraseWithPath(drawPath) {
         ctx.save();
+        const blurVal = Number($('effectAlphaBlur')?.value || 0);
+        if (blurVal > 0) {
+            ctx.filter = `blur(${blurVal}px)`;
+        } else {
+            ctx.filter = 'none';
+        }
         ctx.globalCompositeOperation = 'destination-out';
         ctx.fillStyle = '#000';
         ctx.strokeStyle = '#000';
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         drawPath(ctx);
+        ctx.filter = 'none';
         ctx.restore();
     }
 
@@ -316,6 +323,10 @@
             state.original = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
             state.history = [];
             clearPreview();
+            const blurSlider = $('effectAlphaBlur');
+            if (blurSlider) blurSlider.value = 0;
+            const blurValueLabel = $('effectAlphaBlurValue');
+            if (blurValueLabel) blurValueLabel.textContent = '0px';
             modal.style.display = 'flex';
             requestAnimationFrame(setCanvasCssSize);
             setStatus(`${obj.layerName || state.fileName} 편집 중`);
@@ -386,6 +397,14 @@
         pctx = previewEl.getContext('2d');
 
         trackSelection();
+
+        const blurSlider = $('effectAlphaBlur');
+        const blurValueLabel = $('effectAlphaBlurValue');
+        if (blurSlider && blurValueLabel) {
+            blurSlider.addEventListener('input', () => {
+                blurValueLabel.textContent = `${blurSlider.value}px`;
+            });
+        }
 
         $('alpha-edit-toggle-btn')?.addEventListener('click', openForSelectedImage);
         $('effectAlphaCloseBtn')?.addEventListener('click', closeModal);

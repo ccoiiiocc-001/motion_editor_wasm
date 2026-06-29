@@ -375,6 +375,17 @@ window.updatePropertyPanel = function(customObj) {
         document.querySelectorAll('.prop-scale-group').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.prop-text, .prop-preset').forEach(el => el.style.display = 'block');
         propFill.value = rgbToHex(obj.fill || '#000000');
+        const useTextBgColorEl = document.getElementById('useTextBgColor');
+        const propTextBgColorEl = document.getElementById('propTextBgColor');
+        const hasBg = !!obj.textBackgroundColor;
+        if (useTextBgColorEl) useTextBgColorEl.checked = hasBg;
+        if (propTextBgColorEl) {
+            if (hasBg) {
+                propTextBgColorEl.value = rgbToHex(obj.textBackgroundColor);
+            } else {
+                // 기본값 흰색 유지 혹은 현재 선택값 유지
+            }
+        }
         if (obj.isTimedSubtitleClip && typeof window.getTimedSubtitleActiveCue === 'function') {
             const cue = window.getTimedSubtitleActiveCue(obj);
             subtitleTextInput.value = cue ? cue.text : '';
@@ -410,6 +421,9 @@ window.updatePropertyPanel = function(customObj) {
         } else if (obj.type === 'image') {
             document.querySelectorAll('.prop-image-mask').forEach(el => el.style.display = 'block');
         }
+    }
+    if (typeof window.syncAutoSubtitleWrapVisibility === 'function') {
+        window.syncAutoSubtitleWrapVisibility(obj);
     }
 };
 function updateObj(key, val, isScale = false) {

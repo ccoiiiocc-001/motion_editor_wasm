@@ -322,6 +322,10 @@ function isExtractingLyrics() {
     return whisperExtractor?.isActive?.() ?? false;
 }
 
+function isTimelineClipSyncMode() {
+    return !!state.timelineAudioRef;
+}
+
 function setExtractingUI(active) {
     const prog = $('lyricsExtractProgress');
     const stopBtn = $('lyricsExtractStopBtn');
@@ -335,6 +339,10 @@ function updatePlayPauseBtnLabel() {
     if (!btn) return;
     if (isExtractingLyrics()) {
         btn.textContent = whisperExtractor?.isPaused?.() ? '▶ 추출 재개' : '⏸ 추출 일시정지';
+        return;
+    }
+    if (isTimelineClipSyncMode()) {
+        btn.textContent = window.isTimelinePlaying ? '⏸ 일시정지' : '▶ 재생';
         return;
     }
     btn.textContent = audio && !audio.paused ? '⏸ 일시정지' : '▶ 재생';
@@ -681,12 +689,24 @@ function highlightActiveRow(index, scroll) {
 
 function playFromLine(index) {
     const audio = $('lyricsAudioEl');
-    if (!audio) return;
     const t = getSeekTimeForLine(index);
-    audio.currentTime = t;
+    if (isTimelineClipSyncMode()) {
+        window.currentTime = (state.timelineAudioRef.startTime || 0) + t;
+        if (typeof window.updateTimelineUI === 'function') window.updateTimelineUI();
+        if (typeof window.updateLayerVisibility === 'function') window.updateLayerVisibility();
+        // 타임라인이 일시정지 상태라면 재생 시작
+        if (!window.isTimelinePlaying) {
+            const playBtn = document.getElementById('timelinePlayBtn');
+            if (playBtn) playBtn.click();
+        }
+    } else {
+        if (audio) {
+            audio.currentTime = t;
+            audio.play().catch(() => {});
+        }
+    }
     state.activeLineIndex = index;
     renderLineList();
-    audio.play().catch(() => {});
     updatePlayPauseBtnLabel();
     updateLyricsFlowPreview(t);
     setStatus(`${index + 1}줄 — ${formatTimeShort(t)}부터 재생 (타임 버튼으로 조정)`);
@@ -694,7 +714,12 @@ function playFromLine(index) {
 
 function markLineTime(index) {
     const audio = $('lyricsAudioEl');
-    const t = Math.max(0, (audio?.currentTime ?? 0) - 0.2);
+    let t = 0;
+    if (isTimelineClipSyncMode()) {
+        t = Math.max(0, (window.currentTime || 0) - (state.timelineAudioRef.startTime || 0) - 0.2);
+    } else {
+        t = Math.max(0, (audio?.currentTime ?? 0) - 0.2);
+    }
     const line = state.lines[index];
     if (!line) return;
     line.time = t;
@@ -958,6 +983,61 @@ async function openLyricsFromTimelineSelection() {
     }
 }
 
+async function openForMediaClip(obj, initialLines) {
+    resetLyricsModalState();
+    state.timelineAudioRef = obj;
+    state.duration = (obj.endTime || 5) - (obj.startTime || 0);
+    state.lines = initialLines;
+    state.title = obj.layerName || (obj.isVideo ? '비디오 자막' : '오디오 자막');
+    
+    try {
+        const mediaEl = obj.isVideo ? obj.getElement() : obj.audio;
+        const src = mediaEl?.src || mediaEl?.currentSrc;
+        if (src) {
+            state.audioSrc = src;
+            const audio = $('lyricsAudioEl');
+            if (audio) {
+                audio.src = src;
+                await new Promise((res) => {
+                    audio.onloadedmetadata = () => res();
+                    audio.onerror = () => res();
+                });
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to load media source in modal', e);
+    }
+    
+    openModal({ reset: false });
+    showPhase('work');
+    renderLineList();
+    updateLyricsFlowPreview(0);
+    updateMp3SaveButtonState();
+    
+    setStatus(`AI 음성 추출 완료 (${initialLines.length}줄) — 타임라인 재생 및 편집 후 [완료]를 누르세요`);
+}
+
+function onTimelineTimeUpdate() {
+    if (!isTimelineClipSyncMode()) return;
+    const t = (window.currentTime || 0) - (state.timelineAudioRef.startTime || 0);
+    if ($('lyricsAudioCur')) $('lyricsAudioCur').textContent = formatTimeShort(t);
+    const seek = $('lyricsAudioSeek');
+    if (seek && state.duration) {
+        seek.value = Math.max(0, Math.min(seek.max, Math.floor(t * 10)));
+    }
+    const cue = getActiveCueAt(t);
+    const nextIdx = cue ? cue.index : -1;
+    if (nextIdx !== state.activeLineIndex) {
+        state.activeLineIndex = nextIdx;
+        renderLineList();
+        const activeRow = document.querySelector(`.lyrics-line-row[data-index="${nextIdx}"]`);
+        if (activeRow) activeRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    updateLyricsFlowPreview(t);
+    updatePlayPauseBtnLabel();
+}
+
+
 async function updateMp3SaveButtonState() {
     const btn = $('lyricsSaveMp3Btn');
     if (!btn) return;
@@ -1110,8 +1190,12 @@ window.importLyricsClipFile = async function (file) {
     if (!file) return false;
     try {
         const payload = JSON.parse(await file.text());
+        if (payload?.type === 'motionClipPreset') {
+            await window.importMotionClipPreset(payload);
+            return true;
+        }
         if (payload?.type !== 'lyricsClip' || !Array.isArray(payload.lines)) {
-            showToast('가사 클립(.lyricsclip.json) 형식이 아닙니다', 3000);
+            showToast('가사 클립(.lyricsclip.json) 또는 미디어 프리셋 형식이 아닙니다', 3000);
             return false;
         }
         const at = typeof window.getTimelineCurrentTime === 'function'
@@ -1119,8 +1203,9 @@ window.importLyricsClipFile = async function (file) {
             : 0;
         await applyClipPayloadToTimeline(payload, at);
         return true;
-    } catch {
-        showToast('가사 클립 파일을 읽을 수 없습니다', 3000);
+    } catch (e) {
+        console.error(e);
+        showToast('가사 클립 또는 미디어 프리셋 파일을 읽을 수 없습니다', 3000);
         return false;
     }
 };
@@ -1318,7 +1403,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     $('lyricsPlayPauseBtn')?.addEventListener('click', async () => {
         if (!isWorkPhaseVisible()) return;
-        if (!state.audioSrc) {
+        if (!state.audioSrc && !isTimelineClipSyncMode()) {
             showToast('오디오 파일을 선택하세요', 3000);
             return;
         }
@@ -1330,17 +1415,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!hasLyricsLines()) {
+        if (!hasLyricsLines() && !isTimelineClipSyncMode()) {
             await startAutoLyricsExtract();
             return;
         }
 
-        const audio = $('lyricsAudioEl');
-        if (!audio) return;
-        if (audio.paused) {
-            audio.play().catch(() => {});
+        if (isTimelineClipSyncMode()) {
+            const playBtn = document.getElementById('timelinePlayBtn');
+            if (playBtn) playBtn.click();
         } else {
-            audio.pause();
+            const audio = $('lyricsAudioEl');
+            if (!audio) return;
+            if (audio.paused) {
+                audio.play().catch(() => {});
+            } else {
+                audio.pause();
+            }
         }
         updatePlayPauseBtnLabel();
     });
@@ -1360,6 +1450,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const audio = $('lyricsAudioEl');
     if (audio) {
         audio.addEventListener('timeupdate', () => {
+            if (isTimelineClipSyncMode()) return; // 타임라인 동기화 모드이면 무시
             const t = audio.currentTime;
             if ($('lyricsAudioCur')) $('lyricsAudioCur').textContent = formatTimeShort(t);
             const seek = $('lyricsAudioSeek');
@@ -1374,17 +1465,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         audio.addEventListener('ended', () => updatePlayPauseBtnLabel());
         audio.addEventListener('pause', () => {
+            if (isTimelineClipSyncMode()) return;
             const t = audio.currentTime;
             updateLyricsFlowPreview(t);
             updatePlayPauseBtnLabel();
         });
-        audio.addEventListener('play', () => updatePlayPauseBtnLabel());
+        audio.addEventListener('play', () => {
+            if (isTimelineClipSyncMode()) return;
+            updatePlayPauseBtnLabel();
+        });
     }
 
     $('lyricsAudioSeek')?.addEventListener('input', () => {
         const audio = $('lyricsAudioEl');
         const seek = $('lyricsAudioSeek');
-        if (audio && seek) audio.currentTime = Number(seek.value) / 10;
+        if (seek) {
+            const val = Number(seek.value) / 10;
+            if (isTimelineClipSyncMode()) {
+                window.currentTime = (state.timelineAudioRef.startTime || 0) + val;
+                if (typeof window.updateTimelineUI === 'function') window.updateTimelineUI();
+                if (typeof window.updateLayerVisibility === 'function') window.updateLayerVisibility();
+            } else {
+                if (audio) audio.currentTime = val;
+            }
+        }
     });
 
     $('lyricsCompleteBtn')?.addEventListener('click', () => completeWorkflow());
@@ -1424,6 +1528,397 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+window.saveSelectedClipAsPreset = async function () {
+    const obj = (typeof canvas !== 'undefined' ? canvas.getActiveObject() : null) || window.lastSelectedObj; 
+    if (!obj) {
+        showToast('저장할 클립을 선택하세요');
+        return false;
+    }
+    
+    const name = (document.getElementById('clipPresetNameInput')?.value || '').trim() || 'clip';
+    
+    // 비동기 활성화 손실을 방지하기 위해 사용자 클릭 직후 동기적으로 AudioContext 생성 및 resume
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContextClass();
+    if (audioCtx.state === 'suspended') {
+        await audioCtx.resume().catch(() => {});
+    }
+    
+    if (obj.trackType === 'audio') {
+        const wavBlob = await window.trimAudioOffline(obj, audioCtx);
+        if (wavBlob) {
+            const url = URL.createObjectURL(wavBlob);
+            const newAudio = new Audio(url);
+            newAudio.load();
+            await new Promise(res => {
+                newAudio.onloadedmetadata = res;
+                newAudio.onerror = res;
+            });
+            obj.audio = newAudio;
+            obj.trimStart = 0;
+            if (typeof window.renderTracks === 'function') window.renderTracks();
+            if (typeof window.updateLayerVisibility === 'function') window.updateLayerVisibility();
+        }
+        return true;
+    } else if (obj.isVideo && obj.getElement()) {
+        const webmBlob = await window.trimVideoOffline(obj, audioCtx);
+        if (webmBlob) {
+            const url = URL.createObjectURL(webmBlob);
+            const newVideo = document.createElement('video');
+            newVideo.muted = true;
+            newVideo.playsInline = true;
+            newVideo.crossOrigin = "anonymous";
+            const videoLoadPromise = new Promise(res => {
+                newVideo.onloadedmetadata = res;
+                newVideo.onerror = res;
+            });
+            newVideo.src = url;
+            newVideo.load();
+            await videoLoadPromise;
+            newVideo.width = newVideo.videoWidth || 1920;
+            newVideo.height = newVideo.videoHeight || 1080;
+            
+            // Fabric.js의 underlying element 교체
+            obj.setElement(newVideo);
+            const duration = obj.endTime - obj.startTime;
+            obj.trimStart = 0;
+            obj.inherentDuration = duration;
+            
+            if (typeof window.renderTracks === 'function') window.renderTracks();
+            if (typeof window.updateLayerVisibility === 'function') window.updateLayerVisibility();
+            canvas.requestRenderAll();
+        }
+        return true;
+    } else if (obj.type === 'image' && obj.getElement()) {
+        const src = obj.getElement().src;
+        if (src.startsWith('blob:') || src.startsWith('data:')) {
+            const extension = '.png';
+            const defaultName = name + extension;
+            fetch(src).then(r => r.blob()).then(async blob => {
+                const accept = { 'image/png': ['.png'] };
+                const ok = await window.saveClipToDisk(blob, defaultName, accept);
+                if (ok) showToast('로컬 하드디스크에 저장되었습니다.');
+            }).catch(() => { showToast('클립 데이터를 읽을 수 없습니다'); });
+        } else {
+            showToast('로컬 저장이 불가능한 클립입니다.');
+        }
+        return true;
+    } else {
+        showToast('저장할 수 없는 형식의 클립입니다.');
+        return false;
+    }
+};
+
+window.trimAudioOffline = async function (obj, audioCtx) {
+    if (!obj || obj.trackType !== 'audio' || !obj.audio) {
+        showToast('적절한 오디오 클립이 아닙니다.');
+        return null;
+    }
+    let defaultBase = 'trimmed_audio';
+    const rawName = obj.sourceFileName || obj.layerName || '';
+    if (rawName) {
+        const lastDot = rawName.lastIndexOf('.');
+        const base = lastDot !== -1 ? rawName.substring(0, lastDot) : rawName;
+        defaultBase = base + '_trimmed';
+    }
+    const name = (document.getElementById('clipPresetNameInput')?.value || '').trim() || defaultBase;
+    const src = obj.audio.src;
+    const startTime = obj.startTime || 0;
+    const endTime = obj.endTime || 5;
+    const duration = endTime - startTime;
+    const trimStart = obj.trimStart || 0;
+    showToast('오디오 정밀 자르기 진행 중... ⏳');
+    try {
+        const response = await fetch(src);
+        const arrayBuffer = await response.arrayBuffer();
+        
+        // 상위 interaction 영역에서 넘어온 audioCtx를 이용해 디코딩 진행
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        
+        const sampleRate = audioBuffer.sampleRate;
+        const numberOfChannels = audioBuffer.numberOfChannels;
+        const offlineCtx = new OfflineAudioContext(numberOfChannels, sampleRate * duration, sampleRate);
+        const bufferSource = offlineCtx.createBufferSource();
+        bufferSource.buffer = audioBuffer;
+        bufferSource.connect(offlineCtx.destination);
+        bufferSource.start(0, trimStart, duration);
+        const renderedBuffer = await offlineCtx.startRendering();
+        const wavBlob = audioBufferToWav(renderedBuffer);
+        const defaultName = name + '.wav';
+        const accept = { 'audio/wav': ['.wav'] };
+        const ok = await window.saveClipToDisk(wavBlob, defaultName, accept);
+        if (ok) {
+            showToast('정밀 잘린 오디오 파일이 저장되었습니다.');
+            const nameInput = document.getElementById('clipPresetNameInput');
+            if (nameInput) nameInput.value = '';
+        }
+        return wavBlob;
+    } catch (err) {
+        console.error(err);
+        showToast('오디오 자르기 실패: ' + err.message);
+        return null;
+    }
+};
+
+window.trimVideoOffline = async function (obj, audioCtx) {
+    if (!obj || !obj.isVideo || !obj.getElement()) {
+        showToast('적절한 비디오 클립이 아닙니다.');
+        return null;
+    }
+    const originalVideo = obj.getElement();
+    const src = originalVideo.src;
+    let defaultBase = 'trimmed_clip';
+    const rawName = obj.sourceFileName || obj.layerName || '';
+    if (rawName) {
+        const lastDot = rawName.lastIndexOf('.');
+        const base = lastDot !== -1 ? rawName.substring(0, lastDot) : rawName;
+        defaultBase = base + '_trimmed';
+    }
+    const name = (document.getElementById('clipPresetNameInput')?.value || '').trim() || defaultBase;
+    const startTime = obj.startTime || 0;
+    const endTime = obj.endTime || 5;
+    const duration = endTime - startTime;
+    const trimStart = obj.trimStart || 0;
+    showToast('비디오 정밀 자르기 진행 중... 잠시 기다려주세요 ⏳');
+    
+    const tempVideo = document.createElement('video');
+    tempVideo.muted = false;
+    tempVideo.playsInline = true;
+    tempVideo.crossOrigin = "anonymous";
+    const tempLoadPromise = new Promise((resolve, reject) => {
+        tempVideo.onloadedmetadata = resolve;
+        tempVideo.onerror = reject;
+    });
+    tempVideo.src = src;
+    tempVideo.load();
+    await tempLoadPromise;
+    
+    // trimStart가 0일 때도 브라우저가 seeked 이벤트를 정상 발생시킬 수 있도록 0.001초 미세 오프셋을 사용해 100% 무한대기 방지
+    const seekTarget = trimStart === 0 ? 0.001 : trimStart;
+    tempVideo.currentTime = seekTarget;
+    await new Promise(resolve => {
+        tempVideo.onseeked = resolve;
+    });
+    
+    const canvasEl = document.createElement('canvas');
+    canvasEl.width = tempVideo.videoWidth || 1280;
+    canvasEl.height = tempVideo.videoHeight || 720;
+    const ctx = canvasEl.getContext('2d');
+    
+    // 상위 interaction 영역에서 이미 활성화된 audioCtx를 그대로 전달받아 주입
+    const source = audioCtx.createMediaElementSource(tempVideo);
+    const dest = audioCtx.createMediaStreamDestination();
+    source.connect(dest);
+    
+    const canvasStream = canvasEl.captureStream(30);
+    const outputStream = new MediaStream();
+    canvasStream.getVideoTracks().forEach(track => outputStream.addTrack(track));
+    dest.stream.getAudioTracks().forEach(track => outputStream.addTrack(track));
+    
+    let options = { mimeType: 'video/webm;codecs=vp9,opus' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm;codecs=vp8,opus' };
+    }
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm' };
+    }
+    const recorder = new MediaRecorder(outputStream, options);
+    const chunks = [];
+    recorder.ondataavailable = e => {
+        if (e.data.size > 0) chunks.push(e.data);
+    };
+    
+    tempVideo.playbackRate = 1;
+    
+    return new Promise((resolve) => {
+        recorder.onstop = async () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const defaultName = name + '.webm';
+            const accept = { 'video/webm': ['.webm'] };
+            const ok = await window.saveClipToDisk(blob, defaultName, accept);
+            if (ok) {
+                showToast('정밀 잘린 비디오 파일이 저장되었습니다.');
+                const nameInput = document.getElementById('clipPresetNameInput');
+                if (nameInput) nameInput.value = '';
+            }
+            resolve(blob);
+        };
+        let drawInterval;
+        let checkInterval;
+        const cleanup = () => {
+            clearInterval(drawInterval);
+            clearInterval(checkInterval);
+            tempVideo.pause();
+            recorder.stop();
+        };
+        drawInterval = setInterval(() => {
+            ctx.drawImage(tempVideo, 0, 0, canvasEl.width, canvasEl.height);
+        }, 1000 / 30);
+        checkInterval = setInterval(() => {
+            const elapsed = tempVideo.currentTime - seekTarget;
+            if (elapsed >= duration || tempVideo.ended) {
+                cleanup();
+            }
+        }, 30);
+        recorder.start();
+        tempVideo.play().catch(err => {
+            console.error('Playback failed:', err);
+            cleanup();
+        });
+    });
+};
+
+function audioBufferToWav(buffer) {
+    const numOfChan = buffer.numberOfChannels;
+    const length = buffer.length * numOfChan * 2 + 44;
+    const bufferArr = new ArrayBuffer(length);
+    const view = new DataView(bufferArr);
+    const channels = [];
+    let offset = 0;
+    let pos = 0;
+    let i, sample;
+    const setUint16 = (data) => { view.setUint16(pos, data, true); pos += 2; };
+    const setUint32 = (data) => { view.setUint32(pos, data, true); pos += 4; };
+    setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
+    setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+    setUint32(buffer.sampleRate); setUint32(buffer.sampleRate * numOfChan * 2);
+    setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164); setUint32(length - pos - 4);
+    for (i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
+    while (pos < length) {
+        for (i = 0; i < numOfChan; i++) {
+            sample = Math.max(-1, Math.min(1, channels[i][offset]));
+            sample = (sample < 0 ? sample * 0x8000 : sample * 0x7FFF);
+            view.setInt16(pos, sample, true); pos += 2;
+        }
+        offset++;
+    }
+    return new Blob([bufferArr], { type: 'audio/wav' });
+}
+
+window.importMotionClipPreset = async function (preset) {
+    try {
+        const b64Data = preset.mediaDataB64;
+        const response = await fetch(b64Data);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const props = preset.properties || {};
+        const mediaType = preset.mediaType;
+        const name = props.layerName || preset.sourceFileName || 'clip';
+        
+        const at = typeof window.getTimelineCurrentTime === 'function'
+            ? window.getTimelineCurrentTime()
+            : (typeof currentTime !== 'undefined' ? currentTime : 0);
+            
+        const duration = props.endTime - props.startTime;
+        
+        if (mediaType === 'audio') {
+            const newAudio = new Audio(url);
+            await new Promise(res => {
+                newAudio.onloadedmetadata = res;
+                newAudio.onerror = res;
+            });
+            const track = {
+                layerName: name,
+                sourceFileName: preset.sourceFileName || '',
+                sourceMime: preset.sourceMime || '',
+                startTime: at,
+                endTime: at + duration,
+                trimStart: props.trimStart || 0,
+                trackType: 'audio',
+                trackIndex: props.trackIndex !== undefined ? props.trackIndex : 2,
+                zIndex: 0,
+                audio: newAudio,
+                baseVolume: props.baseVolume !== undefined ? props.baseVolume : 1
+            };
+            if (window.TimelinePlacement) {
+                window.TimelinePlacement.placeClipOnTrack(track, 'audio', track.trackIndex, duration, { preferredStart: at, trimStart: track.trimStart });
+            }
+            audioTrackData.push(track);
+        } else if (mediaType === 'video') {
+            const videoElt = document.createElement('video');
+            videoElt.src = url;
+            videoElt.playsInline = true;
+            videoElt.crossOrigin = "anonymous";
+            videoElt.load();
+            await new Promise(res => {
+                videoElt.onloadedmetadata = res;
+                videoElt.onerror = res;
+            });
+            videoElt.width = videoElt.videoWidth || 1920;
+            videoElt.height = videoElt.videoHeight || 1080;
+            const newImg = new fabric.Image(videoElt, {
+                left: props.left, top: props.top,
+                originX: props.originX || 'center', originY: props.originY || 'center',
+                scaleX: props.scaleX, scaleY: props.scaleY,
+                angle: props.angle, opacity: props.opacity,
+                layerName: name,
+                sourceFileName: preset.sourceFileName || '',
+                sourceMime: preset.sourceMime || '',
+                startTime: at,
+                endTime: at + duration,
+                trimStart: props.trimStart || 0,
+                trackType: props.trackType || 'overlay',
+                trackIndex: props.trackIndex !== undefined ? props.trackIndex : 0,
+                zIndex: props.zIndex || 12,
+                isVideo: true,
+                inherentDuration: props.inherentDuration || videoElt.duration,
+                baseOpacity: props.baseOpacity,
+                baseScaleX: props.baseScaleX,
+                baseScaleY: props.baseScaleY,
+                baseAngle: props.baseAngle,
+                baseLeft: props.baseLeft,
+                baseTop: props.baseTop,
+                baseVolume: props.baseVolume !== undefined ? props.baseVolume : 1,
+                thumbUrl: props.thumbUrl || ''
+            });
+            if (window.TimelinePlacement) {
+                window.TimelinePlacement.placeClipOnTrack(newImg, props.trackType || 'overlay', newImg.trackIndex, duration, { preferredStart: at, trimStart: newImg.trimStart });
+            }
+            canvas.add(newImg);
+        } else {
+            await new Promise(res => {
+                fabric.Image.fromURL(url, img => {
+                    img.set({
+                        left: props.left, top: props.top,
+                        originX: props.originX || 'center', originY: props.originY || 'center',
+                        scaleX: props.scaleX, scaleY: props.scaleY,
+                        angle: props.angle, opacity: props.opacity,
+                        layerName: name,
+                        sourceFileName: preset.sourceFileName || '',
+                        sourceMime: preset.sourceMime || '',
+                        startTime: at,
+                        endTime: at + duration,
+                        trimStart: props.trimStart || 0,
+                        trackType: props.trackType || 'overlay',
+                        trackIndex: props.trackIndex !== undefined ? props.trackIndex : 0,
+                        zIndex: props.zIndex || 10,
+                        baseOpacity: props.baseOpacity,
+                        baseScaleX: props.baseScaleX,
+                        baseScaleY: props.baseScaleY,
+                        baseAngle: props.baseAngle,
+                        baseLeft: props.baseLeft,
+                        baseTop: props.baseTop
+                    });
+                    if (window.TimelinePlacement) {
+                        window.TimelinePlacement.placeClipOnTrack(img, props.trackType || 'overlay', img.trackIndex, duration, { preferredStart: at, trimStart: img.trimStart });
+                    }
+                    canvas.add(img);
+                    res();
+                });
+            });
+        }
+        
+        sortCanvasLayers();
+        if (typeof window.renderTracks === 'function') window.renderTracks();
+        if (typeof window.updateTimelineUI === 'function') window.updateTimelineUI();
+        if (typeof window.updateLayerVisibility === 'function') window.updateLayerVisibility();
+        showToast('클립 프리셋을 성공적으로 불러왔습니다.');
+    } catch (err) {
+        console.error(err);
+        showToast('클립 프리셋 불러오기 실패: ' + err.message);
+    }
+};
+
 window.lyricsSubtitle = {
     buildLrc,
     buildClipPayload,
@@ -1431,5 +1926,8 @@ window.lyricsSubtitle = {
     stripStructureTagsFromLine,
     openLyricsFromTimelineSelection,
     parseLrcToLines,
-    tryLoadEmbeddedMp3Lyrics
+    tryLoadEmbeddedMp3Lyrics,
+    openForMediaClip,
+    onTimelineTimeUpdate,
+    isTimelineClipSyncMode
 };

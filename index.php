@@ -3,13 +3,15 @@
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $host_only = explode(':', $host)[0];
 
-// Allow granda.biz, its subdomains, localhost, and 127.0.0.1
+// Allow granda.biz, yesbb.kr, their subdomains, localhost, and 127.0.0.1
 $is_allowed = false;
 if (
     $host_only === 'localhost' || 
     $host_only === '127.0.0.1' || 
     $host_only === 'granda.biz' || 
     (strlen($host_only) > 11 && substr($host_only, -11) === '.granda.biz') ||
+    $host_only === 'yesbb.kr' || 
+    (strlen($host_only) > 10 && substr($host_only, -10) === '.yesbb.kr') ||
     empty($host_only)
 ) {
     $is_allowed = true;
@@ -233,16 +235,27 @@ if (!$is_allowed) {
               </div>
             </div>
 
-            <div class="prop-group prop-text">
-              <label>폰트 크기</label>
-              <div class="num-ctrl"><button type="button" class="num-btn"
-                  onclick="stepInput('propFontSize', -5)">-</button><input type="number" id="propFontSize" min="20"
-                  max="400" value="80"><button type="button" class="num-btn"
-                  onclick="stepInput('propFontSize', 5)">+</button></div>
-            </div>
-            <div class="prop-group prop-text">
-              <label>폰트 색상</label>
-              <input type="color" id="propFill" value="#000000">
+            <div class="prop-group prop-text" style="grid-column: span 2;">
+              <label>폰트 크기 / 색상 / 배경색</label>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <!-- Size -->
+                <div class="num-ctrl" style="flex:1.5;"><button type="button" class="num-btn"
+                    onclick="stepInput('propFontSize', -5)">-</button><input type="number" id="propFontSize" min="20"
+                    max="400" value="80"><button type="button" class="num-btn"
+                    onclick="stepInput('propFontSize', 5)">+</button></div>
+                <!-- Color -->
+                <div style="display:flex; align-items:center; gap:4px; flex:1; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:0 6px; height:24px; box-sizing:border-box;">
+                  <span style="font-size:10px; color:#475569; white-space:nowrap;">글자색</span>
+                  <input type="color" id="propFill" value="#000000" style="width:100%; height:16px; border:none; padding:0; cursor:pointer; background:transparent;">
+                </div>
+                <!-- Background Color -->
+                <div style="display:flex; align-items:center; gap:4px; flex:1.2; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:0 6px; height:24px; box-sizing:border-box;">
+                  <label style="display:flex; align-items:center; gap:2px; font-size:10px; color:#475569; cursor:pointer; margin:0; white-space:nowrap;">
+                    <input type="checkbox" id="useTextBgColor" style="margin:0; width:11px; height:11px;">배경
+                  </label>
+                  <input type="color" id="propTextBgColor" value="#ffffff" style="width:100%; height:16px; border:none; padding:0; cursor:pointer; background:transparent;">
+                </div>
+              </div>
             </div>
 
             <div class="prop-group prop-text">
@@ -292,6 +305,16 @@ if (!$is_allowed) {
             <div class="prop-group prop-media">
               <label>음량(%)</label>
               <input type="range" id="propVolume" min="0" max="100" value="100">
+            </div>
+            <div class="prop-group prop-media" style="grid-column: span 2; margin-top: 6px;">
+              <label>자동 자막 생성 (AI)</label>
+              <div style="display:flex; gap:6px; align-items:center; margin-top:4px;">
+                <button type="button" id="propAutoSubtitleBtn"
+                  style="flex:1; height:28px; border:none; border-radius:6px; background:#e6e6ff; color:#6366f1; font-weight:800; cursor:pointer; font-size:11px;">AI 자막 생성</button>
+                <button type="button" id="propAutoSubtitleToggleBtn" style="display:none; height:28px; padding:0 10px; border:none; border-radius:6px; background:#f59e0b; color:white; font-weight:800; cursor:pointer; font-size:11px;">⏸</button>
+                <button type="button" id="propAutoSubtitleStopBtn" style="display:none; height:28px; padding:0 10px; border:none; border-radius:6px; background:#ef4444; color:white; font-weight:800; cursor:pointer; font-size:11px;">종료</button>
+              </div>
+              <span id="propAutoSubtitleStatus" style="display:none; font-size:11px; color:#64748b; margin-top:4px; line-height:1.2;">대기 중...</span>
             </div>
             <div class="prop-group prop-image-mask" style="grid-column: span 2;">
               <label>이미지 투명 편집</label>
@@ -583,6 +606,91 @@ if (!$is_allowed) {
       </div>
     </div>
   </div>
+  <style>
+    @keyframes video-progress-stripes {
+      0% { background-position: 40px 0; }
+    }
+    .video-progress-bar-striped {
+      background-image: linear-gradient(
+        45deg, 
+        rgba(255, 255, 255, 0.15) 25%, 
+        transparent 25%, 
+        transparent 50%, 
+        rgba(255, 255, 255, 0.15) 50%, 
+        rgba(255, 255, 255, 0.15) 75%, 
+        transparent 75%, 
+        transparent
+      ) !important;
+      background-size: 40px 40px !important;
+      animation: video-progress-stripes 1.2s linear infinite !important;
+    }
+  </style>
+  <div id="videoSubtitleModal" class="modal-overlay lyrics-modal-overlay" style="display:none;" aria-modal="true" role="dialog">
+    <div class="modal-content" style="position:absolute; inset:24px; width:auto; height:auto; display:flex; flex-direction:column; padding:20px; box-sizing:border-box; border-radius:12px; background:#ffffff; box-shadow:0 20px 60px rgba(0,0,0,0.55); overflow:hidden;">
+      <!-- Modal Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
+        <div style="font-size:16px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:6px;">🎬 동영상 AI 자막 편집기</div>
+        <button type="button" id="videoSubtitleCloseBtn" class="lyrics-modal-close" style="background:none; border:none; font-size:18px; cursor:pointer; color:#64748b;" title="닫기">✕</button>
+      </div>
+      
+      <!-- Side-by-Side Body -->
+      <div style="display:flex; gap:24px; flex:1; min-height:480px; box-sizing:border-box;">
+        <!-- Left: Video Player -->
+        <div id="videoSubtitlePlayerContainer" style="flex:1.2; display:flex; flex-direction:column; gap:10px; transition:opacity 0.3s;">
+          <div style="font-size:12px; font-weight:700; color:#64748b;">동영상 미리보기</div>
+          <div style="background:#090d16; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex:1; border:1px solid #e2e8f0; position:relative;">
+            <video id="videoSubtitlePlayer" style="width:100%; max-height:380px; outline:none;" controls preload="auto"></video>
+            <!-- Subtitle Text Overlay on top of video -->
+            <div id="videoSubtitleVideoOverlay" style="position:absolute; bottom:40px; left:50%; transform:translateX(-50%); width:90%; text-align:center; pointer-events:none; z-index:10; font-family:\'Pretendard\', sans-serif; font-size:18px; font-weight:800; color:#ffffff; text-shadow:2px 2px 0px #000, -2px 2px 0px #000, 2px -2px 0px #000, -2px -2px 0px #000, 0px 2px 0px #000, 0px -2px 0px #000, 2px 0px 0px #000, -2px 0px 0px #000; display:none; line-height:1.4;"></div>
+          </div>
+          <div id="videoSubtitleClipRange" style="font-size:11px; color:#475569; text-align:center; background:#f1f5f9; padding:8px; border-radius:6px; font-weight:700;">
+            선택된 구간: 0.0초 ~ 0.0초
+          </div>
+        </div>
+        
+        <!-- Right: Subtitle List & Whisper Controls -->
+        <div style="flex:1; display:flex; flex-direction:column; gap:12px; box-sizing:border-box;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:12px; font-weight:700; color:#64748b;">AI 자막 목록</div>
+            <button type="button" id="videoSubtitleAddRowBtn" style="padding:4px 10px; border:none; border-radius:4px; background:#e0f2fe; color:#0369a1; font-size:11px; font-weight:800; cursor:pointer; transition:all 0.2s;">+ 줄 추가</button>
+          </div>
+          
+          <!-- AI Action Controls -->
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button type="button" id="videoSubtitleExtractBtn" style="flex:1; height:32px; border:none; border-radius:6px; background:#6366f1; color:white; font-weight:800; cursor:pointer; font-size:12px; transition:all 0.2s;">AI 자막 추출 시작</button>
+            <button type="button" id="videoSubtitleToggleBtn" style="display:none; height:32px; padding:0 12px; border:none; border-radius:6px; background:#f59e0b; color:white; font-weight:800; cursor:pointer; font-size:12px;">⏸ 일시정지</button>
+            <button type="button" id="videoSubtitleStopBtn" style="display:none; height:32px; padding:0 12px; border:none; border-radius:6px; background:#ef4444; color:white; font-weight:800; cursor:pointer; font-size:12px;">중단</button>
+          </div>
+          
+          <!-- AI Progress Status -->
+          <div id="videoSubtitleStatus" style="font-size:11px; color:#475569; display:none; background:#f8fafc; padding:8px; border-radius:6px; border-left:4px solid #6366f1; line-height:1.4;">
+            대기 중...
+          </div>
+
+          <!-- AI Progress Bar Wrap -->
+          <div id="videoSubtitleProgressWrap" style="display:none; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #cbd5e1; margin-top:-4px;">
+            <div style="font-size:10px; font-weight:700; color:#475569; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;">
+              <span id="videoSubtitleProgressLabel">AI 분석 및 자막 추출 진행률</span>
+              <span id="videoSubtitlePercent" style="font-family:monospace; color:#6366f1;">0%</span>
+            </div>
+            <div style="background:#e2e8f0; border-radius:4px; height:8px; overflow:hidden; width:100%;">
+              <div id="videoSubtitleProgressBar" class="video-progress-bar-striped" style="background:#6366f1; width:0%; height:100%; transition:width 0.2s;"></div>
+            </div>
+          </div>
+          
+          <div id="videoSubtitleLineList" class="lyrics-line-list" style="flex:1; overflow-y:auto; border:1px solid #cbd5e1; border-radius:8px; padding:10px; background:#f8fafc; box-sizing:border-box;">
+            <!-- Dynamic elements will be appended here -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Footer Actions -->
+      <div style="display:flex; justify-content:flex-end; gap:8px; border-top:1px solid #e2e8f0; padding-top:14px; margin-top:16px;">
+        <button type="button" id="videoSubtitleCancelBtn" style="padding:8px 18px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff; color:#475569; font-weight:700; cursor:pointer; font-size:12px; transition:all 0.2s;">취소</button>
+        <button type="button" id="videoSubtitleCompleteBtn" style="padding:8px 24px; border:none; border-radius:6px; background:#10b981; color:white; font-weight:800; cursor:pointer; font-size:12px; transition:all 0.2s;">완료 (타임라인에 적용)</button>
+      </div>
+    </div>
+  </div>
   <div id="newProjectModal" class="modal-overlay">
     <div class="modal-content new-project-modal">
       <div class="new-project-modal-icon" aria-hidden="true">
@@ -621,6 +729,10 @@ if (!$is_allowed) {
         <button type="button" class="image-alpha-tool" data-tool="free">자유형</button>
         <label class="image-alpha-brush-label">붓 크기
           <input type="range" id="imageAlphaBrushSize" min="4" max="120" value="28">
+        </label>
+        <label class="image-alpha-brush-label" style="margin-left: 10px;">경계 블러
+          <input type="range" id="imageAlphaBlur" min="0" max="60" value="0" style="vertical-align: middle;">
+          <span id="imageAlphaBlurValue" style="margin-left:4px; font-family:monospace; min-width:24px; display:inline-block; text-align:right;">0px</span>
         </label>
         <button type="button" id="imageAlphaUndoBtn">되돌리기</button>
         <button type="button" id="imageAlphaResetBtn">원본 복원</button>

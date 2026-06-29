@@ -1,7 +1,0 @@
-[
-  {
-    "time": "2026-06-03 15:29:29",
-    "content": "<USER_REQUEST>\n효과창 레트로효과 7번에서 상단선 부분이 최소 20px 튀어나와서 물감이 흘러내리게 하고, 흘러내리는 물감의 입체감을 높여줘 \n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-06-03T15:29:29+09:00.\n</ADDITIONAL_METADATA>\n<USER_SETTINGS_CHANGE>\nThe user changed setting `Model Selection` from None to Gemini 3.1 Pro (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.\n</USER_SETTINGS_CHANGE>",
-    "timestamp": 1780468169.0
-  }
-]

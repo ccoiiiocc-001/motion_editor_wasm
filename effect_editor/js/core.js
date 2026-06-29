@@ -139,6 +139,7 @@ window.applySubtitlePresetToFabricText = function (obj, presetName, options) {
         fontWeight: p.fontWeight || 'normal',
         fontStyle: p.fontStyle || 'normal',
         textAlign: p.textAlign || 'left',
+        textBackgroundColor: p.textBackgroundColor !== undefined ? p.textBackgroundColor : '',
         opacity: bOp,
         scaleX: bSx,
         scaleY: bSy,
@@ -1994,6 +1995,17 @@ window.updateTextPropertyPanel = function (obj) {
     }
     if (fontSize) fontSize.value = obj.fontSize || 80;
     if (fill) fill.value = obj.fill || '#ffffff';
+    const useBg = document.getElementById('useTextBgColor');
+    const bgCol = document.getElementById('propTextBgColor');
+    const hasBg = !!obj.textBackgroundColor;
+    if (useBg) useBg.checked = hasBg;
+    if (bgCol) {
+        if (hasBg) {
+            bgCol.value = obj.textBackgroundColor;
+        } else {
+            // 기본값 유지
+        }
+    }
     if (strokeWidth) strokeWidth.value = obj.strokeWidth || 0;
     if (stroke) stroke.value = obj.stroke || '#000000';
 
@@ -2237,6 +2249,21 @@ window.applySubtitleProperty = function (key, value) {
         if (fill) {
             fill.addEventListener('input', function() {
                 window.applySubtitleProperty('fill', this.value);
+            });
+        }
+        const useBg = document.getElementById('useTextBgColor');
+        const bgCol = document.getElementById('propTextBgColor');
+        if (useBg) {
+            useBg.addEventListener('change', function() {
+                const color = this.checked ? (bgCol ? bgCol.value : '#ffffff') : '';
+                window.applySubtitleProperty('textBackgroundColor', color);
+            });
+        }
+        if (bgCol) {
+            bgCol.addEventListener('input', function() {
+                if (useBg && useBg.checked) {
+                    window.applySubtitleProperty('textBackgroundColor', this.value);
+                }
             });
         }
         if (strokeWidth) {
@@ -2579,6 +2606,7 @@ window.applySubtitleProperty = function (key, value) {
                     fontWeight: activeObject.fontWeight || 'normal',
                     fontStyle: activeObject.fontStyle || 'normal',
                     textAlign: activeObject.textAlign || 'left',
+                    textBackgroundColor: activeObject.textBackgroundColor || '',
                     left: bL,
                     top: bT,
                     angle: bAng,

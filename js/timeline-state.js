@@ -80,3 +80,19 @@ if (timelineMaxDurationSelect) {
     };
 }
 window.trackMuteStates = JSON.parse(localStorage.getItem('shorts_track_mute_states')) || {};
+
+Object.defineProperty(window, 'currentTime', {
+    get: function() { return currentTime; },
+    set: function(val) {
+        currentTime = val;
+        if (typeof window.updateTimelineUI === 'function') window.updateTimelineUI();
+        if (typeof window.updateLayerVisibility === 'function') window.updateLayerVisibility();
+    },
+    configurable: true
+});
+
+Object.defineProperty(window, 'isTimelinePlaying', {
+    get: function() { return isTimelinePlaying; },
+    set: function(val) { isTimelinePlaying = val; },
+    configurable: true
+});

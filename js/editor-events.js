@@ -1336,20 +1336,8 @@ if (saveClipLocalBtn) {
             const lyricsSaved = await window.saveSelectedLyricsClipLocal();
             if (lyricsSaved) return;
         }
-        const obj = canvas.getActiveObject() || window.lastSelectedObj; if (!obj) { window.showToast('저장할 클립을 선택하세요'); return; }
-        const name = clipPresetNameInput.value.trim() || 'clip';
-        let src = ''; if (obj.isVideo && obj.getElement()) { src = obj.getElement().src; } else if (obj.type === 'image' && obj.getElement()) { src = obj.getElement().src; }
-        if (src.startsWith('blob:') || src.startsWith('data:')) {
-            const extension = obj.isVideo ? '.webm' : '.png';
-            const defaultName = name + extension;
-            if (obj.playbackRate && obj.playbackRate !== 1) { window.showToast(`주의: 외부 저장은 원본 속도(${obj.inherentDuration.toFixed(1)}초)로 저장됩니다.`); }
-            fetch(src).then(r => r.blob()).then(async blob => {
-                const accept = obj.isVideo ? { 'video/webm': ['.webm'] } : { 'image/png': ['.png'] };
-                const ok = await window.saveClipToDisk(blob, defaultName, accept);
-                if (ok) window.showToast('로컬 하드디스크에 저장되었습니다.');
-            }).catch(() => { window.showToast('클립 데이터를 읽을 수 없습니다'); });
-        } else {
-            window.showToast('로컬 저장이 불가능한 클립입니다');
+        if (typeof window.saveSelectedClipAsPreset === 'function') {
+            await window.saveSelectedClipAsPreset();
         }
     };
 }
@@ -1437,6 +1425,22 @@ if (propScale) { propScale.oninput = () => { updateObj('scaleX', propScale.value
 if (propScaleX) propScaleX.oninput = () => updateObj('scaleX', propScaleX.value, true);
 if (propScaleY) propScaleY.oninput = () => updateObj('scaleY', propScaleY.value, true);
 if (propFill) propFill.oninput = () => updateObj('fill', propFill.value);
+const useTextBgColor = document.getElementById('useTextBgColor');
+const propTextBgColor = document.getElementById('propTextBgColor');
+if (useTextBgColor) {
+    useTextBgColor.onchange = () => {
+        const checked = useTextBgColor.checked;
+        const color = checked ? (propTextBgColor ? propTextBgColor.value : '#ffffff') : '';
+        updateObj('textBackgroundColor', color);
+    };
+}
+if (propTextBgColor) {
+    propTextBgColor.oninput = () => {
+        if (useTextBgColor && useTextBgColor.checked) {
+            updateObj('textBackgroundColor', propTextBgColor.value);
+        }
+    };
+}
 if (propFontSize) propFontSize.oninput = () => updateObj('fontSize', parseInt(propFontSize.value));
 if (propStrokeWidth) propStrokeWidth.oninput = () => updateObj('strokeWidth', parseInt(propStrokeWidth.value));
 if (propStroke) propStroke.oninput = () => updateObj('stroke', propStroke.value);
@@ -1448,7 +1452,7 @@ if (shadowBlur) shadowBlur.oninput = updateShadow;
 if (shadowColor) shadowColor.oninput = updateShadow;
 if (propVolume) { propVolume.oninput = () => { const target = canvas.getActiveObject() || window.lastSelectedObj; if (target) { const vol = Math.max(0, Math.min(1, propVolume.value / 100)); target.baseVolume = vol; if (target.isVideo && target.getElement()) { target.getElement().volume = vol; } else if (target.audio) { target.audio.volume = vol; } } }; }
 
-const snapshotInputs = [propOpacity, propOpacityNum, propAngle, propAngleNum, propScale, propScaleX, propScaleY, propFill, propFontSize, propStrokeWidth, propStroke, propCharSpacing, propLineHeight, subtitleTextInput, shadowOffset, shadowBlur, shadowColor, propVolume];
+const snapshotInputs = [propOpacity, propOpacityNum, propAngle, propAngleNum, propScale, propScaleX, propScaleY, propFill, useTextBgColor, propTextBgColor, propFontSize, propStrokeWidth, propStroke, propCharSpacing, propLineHeight, subtitleTextInput, shadowOffset, shadowBlur, shadowColor, propVolume];
 snapshotInputs.forEach(el => { if (el) el.addEventListener('change', () => { if (typeof window.saveHistorySnapshot === 'function') window.saveHistorySnapshot(); }); });
 if (propTrackIndex) {
     propTrackIndex.onchange = () => {
@@ -1714,6 +1718,7 @@ if (savePresetBtn) {
             fontWeight: obj.fontWeight,
             fontStyle: obj.fontStyle,
             textAlign: obj.textAlign,
+            textBackgroundColor: obj.textBackgroundColor || '',
             left: bL,
             top: bT,
             angle: bAng,
@@ -1774,6 +1779,7 @@ if (loadPresetBtn) {
             fontWeight: p.fontWeight || 'normal',
             fontStyle: p.fontStyle || 'normal',
             textAlign: p.textAlign || 'left',
+            textBackgroundColor: p.textBackgroundColor !== undefined ? p.textBackgroundColor : '',
             opacity: bOp,
             baseOpacity: bOp,
             scaleX: bSx,
@@ -2097,14 +2103,15 @@ function pauseAllTimelinePreviewMedia() {
 }
 
 async function loadVideoFileMeta(url, videoElt, options = {}) {
-    videoElt.src = url;
     videoElt.playsInline = true;
     videoElt.crossOrigin = 'anonymous';
-    videoElt.load();
-    await new Promise(res => {
+    const metaPromise = new Promise(res => {
         videoElt.onloadedmetadata = res;
         videoElt.onerror = res;
     });
+    videoElt.src = url;
+    videoElt.load();
+    await metaPromise;
     const duration = await probeVideoFileDuration(videoElt, options);
     let thumbUrl = '';
     if (duration > 0) {
@@ -2206,13 +2213,20 @@ window.syncExportRecordingMedia = function () {
         if (active) {
             const localTime = Math.max(0, currentTime - start + (track.trimStart || 0));
             if (el.paused) {
-                el.currentTime = localTime;
-                el.play().catch(() => {});
-            } else if (Math.abs(el.currentTime - localTime) > drift) {
-                el.currentTime = localTime;
+                if (!el.__playRequested) {
+                    if (!el.seeking) el.currentTime = localTime;
+                    el.play().catch(() => {});
+                    el.__playRequested = true;
+                }
+            } else {
+                el.__playRequested = false;
+                if (!el.seeking && Math.abs(el.currentTime - localTime) > drift) {
+                    el.currentTime = localTime;
+                }
             }
-        } else if (!el.paused) {
-            el.pause();
+        } else {
+            if (!el.paused) el.pause();
+            el.__playRequested = false;
         }
     });
     session.videos.forEach((wired) => {
@@ -2231,13 +2245,20 @@ window.syncExportRecordingMedia = function () {
             const loopedTime = (actualTime % inherent) * (obj.playbackRate || 1);
             el.playbackRate = obj.playbackRate || 1;
             if (el.paused) {
-                el.currentTime = loopedTime;
-                el.play().catch(() => {});
-            } else if (Math.abs(el.currentTime - loopedTime) > drift) {
-                el.currentTime = loopedTime;
+                if (!el.__playRequested) {
+                    if (!el.seeking) el.currentTime = loopedTime;
+                    el.play().catch(() => {});
+                    el.__playRequested = true;
+                }
+            } else {
+                el.__playRequested = false;
+                if (!el.seeking && Math.abs(el.currentTime - loopedTime) > drift) {
+                    el.currentTime = loopedTime;
+                }
             }
-        } else if (!el.paused) {
-            el.pause();
+        } else {
+            if (!el.paused) el.pause();
+            el.__playRequested = false;
         }
     });
 };

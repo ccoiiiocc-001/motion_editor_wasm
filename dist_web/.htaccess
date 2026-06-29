@@ -1,0 +1,5 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Redirect requests for index.html to index.php to ensure server-side checks run
+    RewriteRule ^index\.html$ index.php [R=301,L]
+</IfModule>
